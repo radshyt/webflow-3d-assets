@@ -61,16 +61,20 @@ ditherHero.set({ rayIntensity: 2.6, spinSpeed: 0.4 });
 | Slide toward cursor | `mouseParallax` | `0.05` |
 | Object size in frame | `fitHeight` (frame is ~2.9 tall) | `1.90` |
 | Resting angle | `baseRotationX`, `baseRotationY` | `0` |
-| Beam brightness | `rayIntensity` | `1.10` |
+| Figure beam brightness | `rayIntensity` | `1.10` |
 | Where a beam saturates | `rayGain` (higher = fatter) | `6.50` |
 | Blackness between beams | `rayContrast` (>1 crushes haze) | `1.45` |
+| Letter beam brightness | `textRayIntensity` | `1.30` |
+| Letter beam saturation | `textRayGain` | `7.00` |
+| Figure blocks its own beams | `rayOcclusion` | `1.00` |
+| Beams swing off the cursor | `rayCursorShift` (0 = off) | `0.13` |
 | Glow through the letters | `textLightIntensity` | `1.00` |
 | How far letters keep glowing | `textLightFalloff` | `0.65` |
 | How far beams reach | `rayReach` | `0.86` |
 | Beam length / falloff | `rayDensity`, `rayDecay` | `1.00`, `0.990` |
 | Size of the backlight | `lightCoreSize` | `0.130` |
-| Widest a line may get | `textMaxWidth` | `0.90` |
-| Tallest the block may get | `textMaxHeight` | `0.86` |
+| Headline size | `textSizeCqw` (cqw of .dyno_3d) | `18` |
+| Widest a line may get | `textMaxWidth` (safety net) | `0.94` |
 | Central glow spread | `lightHaloSize`, `lightHaloGain` | `0.55`, `0.60` |
 | Light position | `lightCenterX/Y` (0–1) | `0.5` |
 | Chrome -> glass | `glass` (0 = chrome, 1 = clear) | `0.00` |
@@ -150,11 +154,15 @@ the curve hinges — lower values keep the shadows open.
 
 ## Sizing and resizing
 
-The headline is measured and re-fitted every time the stage changes size.
-It shrinks until the widest line fits inside `textMaxWidth` and the block
-fits inside `textMaxHeight`, iterating rather than correcting once —
-letter-spacing means the measured width does not scale perfectly linearly,
-so a single pass can still overflow and clip the outer glyphs.
+The headline is sized in `cqw` of the `.dyno_3d` wrapper, which carries
+`container-type: inline-size`. Font size is derived from that element's
+inline size and nothing else — viewport height is never consulted, so
+resizing the window vertically cannot change the type. `textMaxWidth` is
+only a safety net for very long phrases, and it too is width-only.
+
+If you move the stage into a different wrapper, keep the `.dyno_3d` class
+and its `container-type` on the parent, or the type falls back to the
+stage's own width.
 
 On touch devices the stage height is pinned in pixels at load and only
 revisited when the width actually changes. A mobile browser collapsing or
@@ -162,12 +170,36 @@ expanding its toolbar changes the viewport height mid-scroll, and anything
 sized off that height jumps; pinning means the toolbar can come and go
 without the layout moving at all. Set `lockHeightOnTouch: false` to opt out.
 
+## Two independent beam sources
+
+The backlight behind the figure and the light through the letters are
+carried in separate channels of the same buffer and blurred in the same
+loop, so each has its own controls at no extra cost. `rayIntensity` and
+`rayGain` drive the figure's beams; `textRayIntensity` and `textRayGain`
+drive the letters'.
+
+Beams are composited over the whole frame, so they used to draw on top of
+the figure — the radial blur samples past the silhouette toward the centre
+and picks up light that should have been blocked. The figure now writes a
+stencil into the same buffer and the beams are masked by it. `rayOcclusion`
+at `1.00` means nothing shows through; lower it if you want the glass to
+leak.
+
+The ray march uses an ordered offset rather than a random one. Random
+jitter hid the low-resolution banding but sprayed grain through the
+gradient, which the dither then amplified into stray dark dots inside the
+bright cores and light dots out in the black.
+
 ## Motion
 
 The figure spins slowly at `spinSpeed`. Scrolling spins it up — scroll
 velocity is added to its angular velocity, then decays back to rest at
 `scrollDamping`, so it winds up and coasts down rather than snapping.
 This works the same on desktop and mobile.
+
+The light source also slides opposite the cursor by `rayCursorShift`, so
+the beams sweep the other way as you move across the screen. Set it to `0`
+to keep them fixed.
 
 Pointer steering is mouse and pen only; touch pointer events are ignored.
 Touch drags competed with page scrolling and read as jumpy, so on phones
@@ -188,6 +220,12 @@ Four passes per frame: occlusion at 30% resolution, a 24-tap radial blur
 at that same size, the beauty pass, then the grade-and-dither composite.
 Only the beauty pass runs at full resolution.
 
+- The occlusion and beam passes run every `rayUpdateEvery` frames (default
+  2). Those two passes push the whole model through a second geometry pass,
+  which is the expensive part of the frame; the beams change slowly enough
+  that halving their rate frees the main thread during scrolling with no
+  visible difference.
+- Default pixel ratio cap is 1.50.
 - Rendering pauses when the hero scrolls out of view and when the tab is
   hidden.
 - Pixel ratio is capped at 1.75, so 4K displays don't render 4× the pixels.
