@@ -67,11 +67,16 @@ ditherHero.set({ rayIntensity: 2.6, spinSpeed: 0.4 });
 | Beam thickness | `lightCoreSize` (smaller = tighter) | `0.060` |
 | Central glow spread | `lightHaloSize`, `lightHaloGain` | `0.55`, `0.60` |
 | Light position | `lightCenterX/Y` (0–1) | `0.5` |
+| Chrome -> glass | `glass` (0 = chrome, 1 = clear) | `0.00` |
+| Refraction strength | `refractionScale` | `0.55` |
+| Refraction index | `glassIor` | `1.52` |
+| Light through the glass | `glassLightBleed` | `0.45` |
 | Chrome sharpness | `roughness` (lower = mirror) | `0.13` |
 | Reflection strength | `envIntensity` | `1.05` |
 | Grey steps in the dither | `ditherLevels` (2 = 1-bit) | `6` |
 | Dither dot size | `ditherPixelSize` (CSS px) | `2` |
 | Overall grade | `exposure`, `contrast`, `lift`, `vignette` | — |
+| Tone curve hinge | `contrastPivot` | `0.45` |
 
 Also available: `ditherHero.stop()`, `.start()`, `.destroy()`.
 
@@ -83,8 +88,36 @@ determines the shape of the beams. A solid mass throws broad wedges; a
 shape with gaps throws thin shafts. If you want finer beams from the
 dino, reduce `lightCoreSize` rather than touching the blur settings.
 
-By default the letters do not block the light, matching your reference.
-Set `textOccludesLight: true` to have the words cast ray shadows too.
+The letters block the light too, so beams radiate from the letterforms as
+well as the figure. Set `textOccludesLight: false` if you want the words
+lit but not casting.
+
+### Glass
+
+`glass` fades the figure from solid chrome to clear glass. Because metal
+physically cannot transmit light, the slider fades `metalness` out as it
+fades transmission in — so don't set `metalness` yourself while `glass`
+is above zero, and keep it in the 0–1 range regardless.
+
+`refractionScale` is how hard the headline bends as it passes through the
+body. Around `0.5` reads as thick glass; past `1.5` the letters smear into
+abstraction. `glassIor` shifts the character of the bend (1.33 water,
+1.52 glass, 2.4 diamond).
+
+`glassLightBleed` controls how much of the beam light passes through the
+figure rather than being stopped by it. At `0` a glass dino still throws
+a hard shadow, which looks wrong; the default lets roughly half through,
+so the beams continue below the figure.
+
+Glass adds one extra render pass per frame, but only the headline plane
+is opaque, so that pass is cheap.
+
+### A note on contrast
+
+The tone curve is applied to the render, and the beams are added *after*
+it. That ordering matters: with the beams added first, a high `contrast`
+value crushed them out of the frame entirely. `contrastPivot` sets where
+the curve hinges — lower values keep the shadows open.
 
 ## Mobile
 
