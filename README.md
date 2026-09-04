@@ -12,15 +12,12 @@ permissive CORS headers, then copy the URL.
 **2. HTML** — drop an Embed element on the page, paste
 `webflow-1-embed.html`, and set `data-model` to your URL.
 
-**3. CSS** — Page Settings → Custom Code → Inside `<head>`, wrapped in
-`<style>` tags. Paste `webflow-2-styles.css`.
+**3. CSS** — Page Settings → Custom Code → Inside head tag. Paste
+`webflow-2-styles.css` as-is; the style tags are already in the file.
 
-**4. JS** — Page Settings → Custom Code → Before `</body>`, wrapped in
-`<script type="module">` tags. Paste `webflow-3-script.js`. The
-`type="module"` is not optional.
-
-Note: the file's opening comment writes the closing tag as `<\/script>` on
-purpose. A literal closing tag inside an inline script ends it early.
+**4. JS** — Page Settings → Custom Code → Before body tag. Paste
+`webflow-3-script.js` as-is; the module script tags are already in the
+file.
 
 Publish. Custom code doesn't run in the Designer canvas — use Preview or
 the published site.
@@ -54,21 +51,28 @@ ditherHero.set({ rayIntensity: 2.6, spinSpeed: 0.4 });
 
 | What you want to change | Setting | Default |
 |---|---|---|
-| Rotation speed | `spinSpeed` (rad/sec) | `0.22` |
+| Resting spin | `spinSpeed` (rad/sec) | `0.15` |
+| Scroll spin-up | `scrollBoost` (rad/sec per px) | `0.020` |
+| Scroll spin ceiling | `scrollBoostMax` | `7.0` |
+| How long it coasts | `scrollDamping` (higher = longer) | `0.955` |
 | Slow vertical drift | `wobbleAmount`, `wobbleSpeed` | `0.10`, `0.30` |
-| Cursor response | `mouseStrength` | `0.38` |
+| Cursor response | `mouseStrength` (mouse only) | `0.80` |
 | Cursor weight/lag | `mouseEase` (lower = heavier) | `0.055` |
 | Slide toward cursor | `mouseParallax` | `0.05` |
 | Object size in frame | `fitHeight` (frame is ~2.9 tall) | `1.90` |
 | Resting angle | `baseRotationX`, `baseRotationY` | `0` |
-| Beam brightness | `rayIntensity` | `1.95` |
+| Beam brightness | `rayIntensity` | `0.70` |
+| Glow through the letters | `textLightIntensity` | `0.30` |
+| How far letters keep glowing | `textLightFalloff` | `0.55` |
 | How far beams reach | `rayReach` | `0.86` |
 | Beam length / falloff | `rayDensity`, `rayDecay` | `1.00`, `0.990` |
-| Beam thickness | `lightCoreSize` (smaller = tighter) | `0.060` |
+| Size of the backlight | `lightCoreSize` | `0.180` |
 | Central glow spread | `lightHaloSize`, `lightHaloGain` | `0.55`, `0.60` |
 | Light position | `lightCenterX/Y` (0–1) | `0.5` |
 | Chrome -> glass | `glass` (0 = chrome, 1 = clear) | `0.00` |
-| Refraction strength | `refractionScale` | `0.55` |
+| Refraction strength | `refractionScale` | `0.80` |
+| Thickness at the rim | `refractionEdge` | `0.30` |
+| Centre-to-rim curve | `refractionCurve` | `1.60` |
 | Refraction index | `glassIor` | `1.52` |
 | Light through the glass | `glassLightBleed` | `0.45` |
 | Chrome sharpness | `roughness` (lower = mirror) | `0.13` |
@@ -88,9 +92,22 @@ determines the shape of the beams. A solid mass throws broad wedges; a
 shape with gaps throws thin shafts. If you want finer beams from the
 dino, reduce `lightCoreSize` rather than touching the blur settings.
 
-The letters block the light too, so beams radiate from the letterforms as
-well as the figure. Set `textOccludesLight: false` if you want the words
-lit but not casting.
+### How the light is built
+
+There are two sources. A round backlight sits behind the figure, sized by
+`lightCoreSize` so it spills around the silhouette — that's what rim-lights
+the figure and pushes beams through the gaps under its jaw and between its
+legs. Make it much smaller and the figure covers it completely, which kills
+the effect; that was the bug in the earlier version.
+
+Separately, the letterforms themselves emit. In the occlusion pass the
+glyphs are drawn as light rather than as a mask, so the beams fan out of
+the letters like stained glass. `textLightIntensity` sets how hard they
+glow and `textLightFalloff` how far from centre they keep glowing.
+
+Keep `textLightIntensity` low. Push it much past `0.5` and the letters
+stop reading as windows and start throwing broad hard-edged wedges that
+swamp the backlight.
 
 ### Glass
 
@@ -119,17 +136,25 @@ it. That ordering matters: with the beams added first, a high `contrast`
 value crushed them out of the frame entirely. `contrastPivot` sets where
 the curve hinges — lower values keep the shadows open.
 
+## Motion
+
+The figure spins slowly at `spinSpeed`. Scrolling spins it up — scroll
+velocity is added to its angular velocity, then decays back to rest at
+`scrollDamping`, so it winds up and coasts down rather than snapping.
+This works the same on desktop and mobile.
+
+Pointer steering is mouse and pen only; touch pointer events are ignored.
+Touch drags competed with page scrolling and read as jumpy, so on phones
+scroll is the whole interaction.
+
+`prefers-reduced-motion` stops the spin, the scroll response and the
+pointer response.
+
 ## Mobile
 
 The effect runs on phones. Devices matching `(hover: none)` or
 `(pointer: coarse)` automatically drop to a 1.25 pixel-ratio cap, 16 ray
 samples and a 0.22 occlusion buffer.
-
-Touch position drives the rotation in place of the cursor. Because a
-phone has no hover state, the object sways gently on its own until the
-first touch — `touchDrift` controls that, set it to `0` to disable.
-
-`prefers-reduced-motion` stops the spin and the pointer response.
 
 ## Performance
 
