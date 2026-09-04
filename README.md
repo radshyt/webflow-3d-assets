@@ -68,6 +68,7 @@ ditherHero.set({ rayIntensity: 2.6, spinSpeed: 0.4 });
 | Letter beam saturation | `textRayGain` | `7.00` |
 | Figure blocks its own beams | `rayOcclusion` | `1.00` |
 | Beams swing off the cursor | `rayCursorShift` (0 = off) | `0.13` |
+| Hard cap on beam brightness | `rayCeiling` (never raise above 1) | `1.00` |
 | Glow through the letters | `textLightIntensity` | `1.00` |
 | How far letters keep glowing | `textLightFalloff` | `0.65` |
 | How far beams reach | `rayReach` | `0.86` |
@@ -197,9 +198,17 @@ velocity is added to its angular velocity, then decays back to rest at
 `scrollDamping`, so it winds up and coasts down rather than snapping.
 This works the same on desktop and mobile.
 
-The light source also slides opposite the cursor by `rayCursorShift`, so
-the beams sweep the other way as you move across the screen. Set it to `0`
-to keep them fixed.
+Only the blur centre follows the cursor, by `rayCursorShift`, so the beams
+sweep as you move across the screen. The lamp itself stays pinned to
+`lightCenterX/Y` and never wanders or grows — it is a fixed backlight.
+Set the shift to `0` to lock the beams too.
+
+Two things keep the light from ever flooding the frame. Samples that walk
+off the ray buffer contribute nothing: the texture clamps at its edge, so
+without that guard every sample past the border returns the same edge texel,
+and once that texel is bright the sum runs away. And `rayCeiling` caps what
+the beams may add, because `rayIntensity` scales a *saturated* beam — at 5.00
+a saturated region would otherwise land five times past white.
 
 Pointer steering is mouse and pen only; touch pointer events are ignored.
 Touch drags competed with page scrolling and read as jumpy, so on phones
