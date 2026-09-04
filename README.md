@@ -61,12 +61,16 @@ ditherHero.set({ rayIntensity: 2.6, spinSpeed: 0.4 });
 | Slide toward cursor | `mouseParallax` | `0.05` |
 | Object size in frame | `fitHeight` (frame is ~2.9 tall) | `1.90` |
 | Resting angle | `baseRotationX`, `baseRotationY` | `0` |
-| Beam brightness | `rayIntensity` | `0.70` |
-| Glow through the letters | `textLightIntensity` | `0.30` |
-| How far letters keep glowing | `textLightFalloff` | `0.55` |
+| Beam brightness | `rayIntensity` | `1.10` |
+| Where a beam saturates | `rayGain` (higher = fatter) | `6.50` |
+| Blackness between beams | `rayContrast` (>1 crushes haze) | `1.45` |
+| Glow through the letters | `textLightIntensity` | `1.00` |
+| How far letters keep glowing | `textLightFalloff` | `0.65` |
 | How far beams reach | `rayReach` | `0.86` |
 | Beam length / falloff | `rayDensity`, `rayDecay` | `1.00`, `0.990` |
-| Size of the backlight | `lightCoreSize` | `0.180` |
+| Size of the backlight | `lightCoreSize` | `0.130` |
+| Widest a line may get | `textMaxWidth` | `0.90` |
+| Tallest the block may get | `textMaxHeight` | `0.86` |
 | Central glow spread | `lightHaloSize`, `lightHaloGain` | `0.55`, `0.60` |
 | Light position | `lightCenterX/Y` (0–1) | `0.5` |
 | Chrome -> glass | `glass` (0 = chrome, 1 = clear) | `0.00` |
@@ -105,9 +109,17 @@ glyphs are drawn as light rather than as a mask, so the beams fan out of
 the letters like stained glass. `textLightIntensity` sets how hard they
 glow and `textLightFalloff` how far from centre they keep glowing.
 
-Keep `textLightIntensity` low. Push it much past `0.5` and the letters
-stop reading as windows and start throwing broad hard-edged wedges that
-swamp the backlight.
+The beams are shaped by two controls working together. `rayGain` multiplies
+the ray buffer before `rayContrast` raises it to a power. Gain decides where
+a beam saturates; the exponent decides how fast everything below that falls
+to black. Order matters: the raw buffer peaks around 0.2, so applying the
+exponent without gaining first crushes the beams along with the haze, and
+gaining without the exponent floods the frame with grey. If the background
+ever looks washed out, raise `rayContrast` before touching anything else.
+
+The figure is a solid mass, so it throws fewer and broader shafts than a
+shape with gaps would. Lowering `lightCoreSize` tightens them; raising
+`rayDecay` toward 1.0 lets them travel further before dying.
 
 ### Glass
 
@@ -135,6 +147,20 @@ The tone curve is applied to the render, and the beams are added *after*
 it. That ordering matters: with the beams added first, a high `contrast`
 value crushed them out of the frame entirely. `contrastPivot` sets where
 the curve hinges — lower values keep the shadows open.
+
+## Sizing and resizing
+
+The headline is measured and re-fitted every time the stage changes size.
+It shrinks until the widest line fits inside `textMaxWidth` and the block
+fits inside `textMaxHeight`, iterating rather than correcting once —
+letter-spacing means the measured width does not scale perfectly linearly,
+so a single pass can still overflow and clip the outer glyphs.
+
+On touch devices the stage height is pinned in pixels at load and only
+revisited when the width actually changes. A mobile browser collapsing or
+expanding its toolbar changes the viewport height mid-scroll, and anything
+sized off that height jumps; pinning means the toolbar can come and go
+without the layout moving at all. Set `lockHeightOnTouch: false` to opt out.
 
 ## Motion
 
