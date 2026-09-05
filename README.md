@@ -66,16 +66,16 @@ ditherHero.set({ rayIntensity: 2.6, spinSpeed: 0.4 });
 | Blackness between beams | `rayContrast` (>1 crushes haze) | `1.45` |
 | Letter beam brightness | `textRayIntensity` | `1.30` |
 | Letter beam saturation | `textRayGain` | `7.00` |
+| Damp letter beams at centre | `textRayInner` | `0.26` |
 | Figure blocks its own beams | `rayOcclusion` | `1.00` |
 | Beams swing off the cursor | `rayCursorShift` (0 = off) | `0.13` |
 | Hard cap on beam brightness | `rayCeiling` (never raise above 1) | `1.00` |
 | Glow through the letters | `textLightIntensity` | `1.00` |
-| How far letters keep glowing | `textLightFalloff` | `0.65` |
+| Letter emission falloff | `textLightFalloff` (2.0 = flat) | `2.00` |
 | How far beams reach | `rayReach` | `0.86` |
 | Beam length / falloff | `rayDensity`, `rayDecay` | `1.00`, `0.990` |
 | Size of the backlight | `lightCoreSize` | `0.130` |
-| Headline size | `textSizeCqw` (cqw of .dyno_3d) | `18` |
-| Widest a line may get | `textMaxWidth` (safety net) | `0.94` |
+| Headline width | `textFitWidth` (of .dyno_3d inline width) | `0.90` |
 | Central glow spread | `lightHaloSize`, `lightHaloGain` | `0.55`, `0.60` |
 | Light position | `lightCenterX/Y` (0–1) | `0.5` |
 | Chrome -> glass | `glass` (0 = chrome, 1 = clear) | `0.00` |
@@ -155,11 +155,18 @@ the curve hinges — lower values keep the shadows open.
 
 ## Sizing and resizing
 
-The headline is sized in `cqw` of the `.dyno_3d` wrapper, which carries
-`container-type: inline-size`. Font size is derived from that element's
-inline size and nothing else — viewport height is never consulted, so
-resizing the window vertically cannot change the type. `textMaxWidth` is
-only a safety net for very long phrases, and it too is width-only.
+The headline is fitted to width. The widest line is measured and the font
+size scaled by the resulting ratio until it fills exactly `textFitWidth` of
+the `.dyno_3d` container's inline box, minus its padding — the same
+ratio-correction loop as a DOM fit-to-width helper, five passes with a
+0.002 tolerance. Correcting by ratio rather than shrinking once is what
+stops the outer glyphs clipping, since letter-spacing means width does not
+scale perfectly linearly with font size.
+
+Only the container's inline width is ever read. Viewport height is not
+consulted anywhere in the type path, so the phrase scales purely with width
+and its proportions never change. Redraws are coalesced into one animation
+frame, and it refits once webfonts settle.
 
 If you move the stage into a different wrapper, keep the `.dyno_3d` class
 and its `container-type` on the parent, or the type falls back to the
@@ -185,6 +192,20 @@ and picks up light that should have been blocked. The figure now writes a
 stencil into the same buffer and the beams are masked by it. `rayOcclusion`
 at `1.00` means nothing shows through; lower it if you want the glass to
 leak.
+
+Both sources are screened together rather than summed: `1 - (1-a)(1-b)`.
+Summing and clipping meant whichever source saturated first swallowed the
+other, which is why the backlight disappeared as soon as the letter beams
+got bright. Screening is bounded by construction, so both always contribute.
+
+A radial blur piles every sample onto its convergence point, so the letter
+beams used to stack into a hot blob exactly where the figure sits — raising
+`textRayIntensity` brightened the middle instead of the letters.
+`textRayInner` damps them near the centre, so they stay thin there and open
+out toward the edges.
+
+`textLightFalloff` at `2.00` is effectively flat, so every letterform emits
+equally. Lower it only if you want the outer words to dim.
 
 The ray march uses an ordered offset rather than a random one. Random
 jitter hid the low-resolution banding but sprayed grain through the
