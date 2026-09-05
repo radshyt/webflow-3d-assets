@@ -68,13 +68,13 @@ ditherHero.set({ rayIntensity: 2.6, spinSpeed: 0.4 });
 | Letter beam saturation | `textRayGain` | `7.00` |
 | Damp letter beams at centre | `textRayInner` | `0.26` |
 | Figure blocks its own beams | `rayOcclusion` | `1.00` |
-| Beams swing off the cursor | `rayCursorShift` (0 = off) | `0.13` |
+| Beams swing off the cursor | `rayCursorShift` (0 = pinned) | `0.00` |
 | Hard cap on beam brightness | `rayCeiling` (never raise above 1) | `1.00` |
 | Glow through the letters | `textLightIntensity` | `1.00` |
 | Letter emission falloff | `textLightFalloff` (2.0 = flat) | `2.00` |
 | How far beams reach | `rayReach` | `0.86` |
 | Beam length / falloff | `rayDensity`, `rayDecay` | `1.00`, `0.990` |
-| Size of the backlight | `lightCoreSize` | `0.130` |
+| Size of the backlight | `lightCoreSize` (see note) | `0.240` |
 | Headline width | `textFitWidth` (of .dyno_3d inline width) | `0.90` |
 | Central glow spread | `lightHaloSize`, `lightHaloGain` | `0.55`, `0.60` |
 | Light position | `lightCenterX/Y` (0–1) | `0.5` |
@@ -102,6 +102,19 @@ shape with gaps throws thin shafts. If you want finer beams from the
 dino, reduce `lightCoreSize` rather than touching the blur settings.
 
 ### How the light is built
+
+**`lightCoreSize` must be larger than the figure's silhouette.** This is the
+single most common way to lose the backlight: if the core is smaller than the
+figure, the figure covers it completely, no light escapes around the edges,
+and the only light left in the frame comes from the letters. At `0.140` the
+backlight contributed nothing. `0.240` clears the silhouette. You can check
+this at any time by setting `textRayIntensity: 0` — whatever remains is the
+backlight, and if the frame goes black the core is too small.
+
+`rayCursorShift` moves the point the beams converge on, and that point is what
+the eye reads as the light source — so anything above about `0.05` looks like
+the lamp itself wandering around the screen rather than the beams sweeping.
+It now defaults to `0`.
 
 There are two sources. A round backlight sits behind the figure, sized by
 `lightCoreSize` so it spills around the silhouette — that's what rim-lights
@@ -157,9 +170,15 @@ the curve hinges — lower values keep the shadows open.
 
 The headline is fitted to width. The widest line is measured and the font
 size scaled by the resulting ratio until it fills exactly `textFitWidth` of
-the `.dyno_3d` container's inline box, minus its padding — the same
-ratio-correction loop as a DOM fit-to-width helper, five passes with a
-0.002 tolerance. Correcting by ratio rather than shrinking once is what
+the **stage** — the element this canvas maps onto 1:1 — using the same
+ratio-correction loop as a DOM fit-to-width helper, five passes with a 0.002
+tolerance.
+
+It deliberately does *not* measure a separate wrapper. If `.dyno_3d` is wider
+than the stage for any reason — a full-bleed wrapper, the stage sitting inside
+a padded column — the target width exceeds the canvas and the glyphs are drawn
+off both edges and clipped into fragments. Measured against the stage that
+cannot happen. Correcting by ratio rather than shrinking once is what
 stops the outer glyphs clipping, since letter-spacing means width does not
 scale perfectly linearly with font size.
 
@@ -250,6 +269,13 @@ Four passes per frame: occlusion at 30% resolution, a 24-tap radial blur
 at that same size, the beauty pass, then the grade-and-dither composite.
 Only the beauty pass runs at full resolution.
 
+- Scroll position is sampled inside the render loop, not from a scroll
+  event. Smooth-scroll libraries such as Lenis animate scroll on their own
+  rAF and fire events every frame; sampling once per rendered frame stops the
+  two loops fighting. If `window.lenis` is exposed, its `animatedScroll` is
+  read directly.
+- When frames run long the beam passes are skipped more aggressively, so a
+  busy main thread degrades the beams rather than the scroll.
 - The occlusion and beam passes run every `rayUpdateEvery` frames (default
   2). Those two passes push the whole model through a second geometry pass,
   which is the expensive part of the frame; the beams change slowly enough
