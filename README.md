@@ -70,13 +70,13 @@ ditherHero.set({ rayIntensity: 2.6, spinSpeed: 0.4 });
 | Letter beam saturation | `textRayGain` | `7.00` |
 | Damp letter beams at centre | `textRayInner` | `0.26` |
 | Figure blocks its own beams | `rayOcclusion` | `1.00` |
-| Beams swing off the cursor | `rayCursorShift` (0 = pinned) | `0.00` |
+| Beams swing off the cursor | `rayCursorShift` (0 = pinned) | `0.07` |
 | Hard cap on beam brightness | `rayCeiling` (never raise above 1) | `1.00` |
 | Glow through the letters | `textLightIntensity` | `1.00` |
 | Letter emission falloff | `textLightFalloff` (2.0 = flat) | `2.00` |
 | How far beams reach | `rayReach` | `0.86` |
 | Beam length / falloff | `rayDensity`, `rayDecay` | `1.00`, `0.990` |
-| Size of the backlight | `lightCoreSize` (see note) | `0.240` |
+| Size of the backlight | `lightCoreSize` (see note) | `0.090` |
 | Headline width | `textFitWidth` (of .dyno_3d inline width) | `0.90` |
 | Central glow spread | `lightHaloSize`, `lightHaloGain` | `0.55`, `0.60` |
 | Light position | `lightCenterX/Y` (0–1) | `0.5` |
@@ -113,10 +113,15 @@ backlight contributed nothing. `0.240` clears the silhouette. You can check
 this at any time by setting `textRayIntensity: 0` — whatever remains is the
 backlight, and if the frame goes black the core is too small.
 
-`rayCursorShift` moves the point the beams converge on, and that point is what
-the eye reads as the light source — so anything above about `0.05` looks like
-the lamp itself wandering around the screen rather than the beams sweeping.
-It now defaults to `0`.
+`rayCursorShift` swings the beam **direction** with the cursor. The march
+centre follows the pointer while the falloff and the lamp stay pinned to
+`lightCenterX/Y` on their own uniform, so the beams sweep without the hot core
+wandering. Past about `0.15` it starts to read as the light itself moving.
+
+A compact core is what produces many thin spokes rather than a few broad
+wedges — the reference look comes from light slipping around the silhouette in
+slivers. `0.090` with a high `rayGain` gives that; a large core smears
+everything into soft blobs.
 
 There are two sources. A round backlight sits behind the figure, sized by
 `lightCoreSize` so it spills around the silhouette — that's what rim-lights
@@ -167,6 +172,17 @@ The tone curve is applied to the render, and the beams are added *after*
 it. That ordering matters: with the beams added first, a high `contrast`
 value crushed them out of the frame entirely. `contrastPivot` sets where
 the curve hinges — lower values keep the shadows open.
+
+## A note on the canvas textures
+
+The headline canvases are disposed and reallocated whenever their pixel
+dimensions change. A `CanvasTexture` whose source changes size cannot simply be
+flagged dirty: the GPU texture was allocated at the old dimensions, so a new,
+smaller canvas gets uploaded into part of it and the previous headline survives
+in the remainder. That is what produced a ghost copy of the words at the wrong
+scale after resizing the browser — two headlines at different sizes on top of
+each other. It only ever appeared after a resize, never on a fresh load at any
+size, which is what identified it.
 
 ## Sizing and resizing
 
