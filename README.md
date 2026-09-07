@@ -64,6 +64,7 @@ ditherHero.set({ rayIntensity: 2.6, spinSpeed: 0.4 });
 | Figure beam brightness | `rayIntensity` | `1.10` |
 | Where a beam saturates | `rayGain` (higher = fatter) | `6.50` |
 | Blackness between beams | `rayContrast` (>1 crushes haze) | `1.45` |
+| Beam dither amount | `rayJitter` (0 bands, 1 mottles) | `0.45` |
 | Letter beam brightness | `textRayIntensity` | `1.30` |
 | Letter beam saturation | `textRayGain` | `7.00` |
 | Damp letter beams at centre | `textRayInner` | `0.26` |
@@ -262,6 +263,35 @@ pointer response.
 The effect runs on phones. Devices matching `(hover: none)` or
 `(pointer: coarse)` automatically drop to a 1.25 pixel-ratio cap, 16 ray
 samples and a 0.22 occlusion buffer.
+
+## Performance levers, in order of effect
+
+Each of these is independent. Work down the list until the scroll is clean.
+
+1. **`renderScale`** (0.85). The beauty pass renders at this fraction of screen
+   size; the dither is applied afterwards at full resolution, so the grid stays
+   crisp and the softness underneath is close to invisible. 0.7 still looks
+   fine and cuts the most expensive pass to half its pixels.
+2. **`maxFps`** (45). The spin is slow enough that 45 is indistinguishable from
+   60, and the skipped frames are main-thread time handed back to Lenis.
+   Setting 30 is very noticeable in cost and barely noticeable to look at.
+3. **`maxPixelRatio`** (1.75). On a 2x display this is the difference between
+   rendering 1.75x and 1.25x the CSS pixels in each direction — roughly double
+   the fill rate. This is the biggest single number in the file.
+4. **`glass`**. Any value above 0 makes three.js run an extra transmission
+   render plus a mipmap chain every frame. To find out what it costs you, set
+   `ditherHero.set({glass: 0})` in the console and watch the scroll. If that
+   is the bulk of it, the honest options are a lower value or no glass.
+5. **`rayUpdateEvery`** (2). The occlusion pass pushes the whole model through
+   a second geometry pass. 3 is still smooth for a slow spin.
+6. **The model.** `dyno-lite.glb` is the same shape at 66k triangles instead of
+   132k and 1.7 MB instead of 3.3 MB. It halves the geometry cost of *both*
+   passes and the download. The trade is mild faceting in the reflections,
+   which the dither partly hides.
+
+Note that the two geometry passes cost the same regardless of `renderScale`
+or `occlusionScale` — vertex work does not shrink with resolution. Only the
+model itself and `rayUpdateEvery` touch that half of the budget.
 
 ## Performance
 
