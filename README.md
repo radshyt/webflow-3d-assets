@@ -64,7 +64,8 @@ ditherHero.set({ rayIntensity: 2.6, spinSpeed: 0.4 });
 | Figure beam brightness | `rayIntensity` | `1.10` |
 | Where a beam saturates | `rayGain` (higher = fatter) | `6.50` |
 | Blackness between beams | `rayContrast` (>1 crushes haze) | `1.45` |
-| Beam dither amount | `rayJitter` (0 bands, 1 mottles) | `0.45` |
+| Beam sample jitter | `rayJitter` (leave at 1) | `1.00` |
+| Beam tidy-up blur | `rayBlur` (low-res texels, 0 = off) | `1.00` |
 | Letter beam brightness | `textRayIntensity` | `1.30` |
 | Letter beam saturation | `textRayGain` | `7.00` |
 | Damp letter beams at centre | `textRayInner` | `0.26` |
@@ -169,17 +170,18 @@ the curve hinges — lower values keep the shadows open.
 
 ## Sizing and resizing
 
-The headline is fitted to width. The widest line is measured and the font
-size scaled by the resulting ratio until it fills exactly `textFitWidth` of
-the **stage** — the element this canvas maps onto 1:1 — using the same
-ratio-correction loop as a DOM fit-to-width helper, five passes with a 0.002
-tolerance.
+The headline block is measured once at a reference size to get its natural
+aspect ratio. The canvas is then sized to the **text block**, and the plane it
+is mapped onto is given exactly the same aspect. Width is `textFitWidth` of the
+frustum width; height follows from the measurement.
 
-It deliberately does *not* measure a separate wrapper. If `.dyno_3d` is wider
-than the stage for any reason — a full-bleed wrapper, the stage sitting inside
-a padded column — the target width exceeds the canvas and the glyphs are drawn
-off both edges and clipped into fragments. Measured against the stage that
-cannot happen. Correcting by ratio rather than shrinking once is what
+This is the part that matters: previously the canvas took the *stage's* aspect
+while the plane took the *camera's*, and any disagreement between those two
+stretched the glyphs horizontally — a wrapper of a different width, a stale
+layout read mid-resize, a container with padding. Both now derive from a single
+measurement, so there is no second aspect ratio available to drift out of sync.
+The type cannot be compressed by a resize regardless of what the surrounding
+layout does. Correcting by ratio rather than shrinking once is what
 stops the outer glyphs clipping, since letter-spacing means width does not
 scale perfectly linearly with font size.
 
@@ -226,6 +228,15 @@ out toward the edges.
 
 `textLightFalloff` at `2.00` is effectively flat, so every letterform emits
 equally. Lower it only if you want the outer words to dim.
+
+**`rayJitter` must stay at 1.0.** The march samples the occluder at discrete
+steps, so at anything less than a full step the figure appears as a row of
+ghost silhouettes marching outward from the centre — the same shape repeated
+two dozen times. A full step smears them into a continuum. That trades the
+stepping for noise, which is what `rayBlur` then cleans up: a 3x3 tent run on
+the beam buffer at its own low resolution, far cheaper than widening the tap
+count in the full-resolution composite. Turning `rayBlur` off brings the grain
+back; lowering `rayJitter` brings the ghosts back. They work as a pair.
 
 The ray march uses an ordered offset rather than a random one. Random
 jitter hid the low-resolution banding but sprayed grain through the
