@@ -59,7 +59,7 @@ ditherHero.set({ rayIntensity: 2.6, spinSpeed: 0.4 });
 | Cursor response | `mouseStrength` (mouse only) | `0.80` |
 | Cursor weight/lag | `mouseEase` (lower = heavier) | `0.055` |
 | Slide toward cursor | `mouseParallax` | `0.05` |
-| Object size in frame | `fitHeight` (frame is ~2.9 tall) | `1.90` |
+| Object size in frame | `fitWidth` (fraction of frustum WIDTH) | `0.36` |
 | Resting angle | `baseRotationX`, `baseRotationY` | `0` |
 | Figure beam brightness | `rayIntensity` | `1.10` |
 | Where a beam saturates | `rayGain` (higher = fatter) | `6.50` |
@@ -210,7 +210,13 @@ If you move the stage into a different wrapper, keep the `.dyno_3d` class
 and its `container-type` on the parent, or the type falls back to the
 stage's own width.
 
-On touch devices the stage height is pinned in pixels at load and only
+The figure is scaled from the frustum **width**, so its on-screen size is a
+function of viewport width and nothing else. Sizing it off height meant a
+phone's toolbar sliding away made the viewport taller and the figure jumped
+bigger mid-scroll. With `fitWidth` the pixel height works out to
+`fitWidth x viewport width` exactly, whatever the height does.
+
+On touch devices the stage height is also pinned in pixels at load and only
 revisited when the width actually changes. A mobile browser collapsing or
 expanding its toolbar changes the viewport height mid-scroll, and anything
 sized off that height jumps; pinning means the toolbar can come and go
