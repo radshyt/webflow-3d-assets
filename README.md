@@ -68,11 +68,13 @@ ditherHero.set({ rayIntensity: 2.6, spinSpeed: 0.4 });
 | Beam tidy-up blur | `rayBlur` (low-res texels, 0 = off) | `1.00` |
 | Letter beam brightness | `textRayIntensity` | `0.75` |
 | Beams off the chrome itself | `objectRayIntensity` | `0.85` |
-| How hot a pixel must be to emit | `objectRayThreshold` | `0.35` |
-| Strength of those highlight beams | `objectRayGain` | `1.60` |
+| How hot a pixel must be to emit | `objectRayThreshold` | `0.12` |
+| Where a highlight beam saturates | `objectRayGain` | `22.00` |
 | Stop beams washing the letters | `beamProtect` | `0.55` |
-| Remove the even wash entirely | `floodCut` (1 = none survives) | `0.90` |
+| Remove the central wash | `floodCut` (1 = none survives) | `0.90` |
 | Width of the wash estimate | `floodRadius` (low-res texels) | `9.00` |
+| How far the cut reaches | `floodExtent` (width units) | `0.30` |
+| Slide the figure sideways | `modelOffsetX` (fraction of width) | `0.00` |
 | Letter beam saturation | `textRayGain` | `7.00` |
 | Damp letter beams at centre | `textRayInner` | `0.26` |
 | Figure blocks its own beams | `rayOcclusion` | `1.00` |
@@ -244,15 +246,24 @@ its flood component, so subtracting it leaves the streak structure and removes
 the wash — and because the term rises and falls with the flood itself, it is
 self-levelling. Rotating the figure cannot wash the frame at any brightness.
 
-Measured across two very different rotations: mean 0.083 versus 0.088, medians
-at pure black. `floodCut` at `1.0` removes all of it; below about `0.7` the wash
-starts to creep back.
+The subtraction is weighted toward the centre and reaches only as far as
+`floodExtent`. The wash originates where every beam converges, so cutting there
+removes it while leaving the streaks further out completely alone — applied
+evenly, as it was at first, it simply dimmed every beam in the frame.
+
+Measured across three rotations: means within 6.8% of each other, medians at
+pure black throughout.
 
 ## Three beam sources
 
 The figure's own specular highlights emit. The beam pass samples the rendered
-frame, takes everything above `objectRayThreshold`, and marches it like any
-other light — so wherever the chrome catches a hot highlight, light streams off
+frame, takes everything above `objectRayThreshold` **within the figure's own
+stencil**, and marches it like any other light. The stencil gate matters:
+sampling the whole frame forced the threshold above the headline's value to stop
+it flooding, and almost no pixels cleared that bar, so the channel was invisible
+however hard it was driven. Its gain also sits in the composite ahead of the
+power curve, like `rayGain` and `textRayGain` — applying it during the march
+instead left values around 0.015, which the curve drove to nothing — so wherever the chrome catches a hot highlight, light streams off
 it. Unlike the backlight and the letters, these beams are **not** masked by the
 figure: the light starts on its surface, so it spills over the figure and
 forward into the foreground rather than stopping at the silhouette. That is the
