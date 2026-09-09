@@ -71,6 +71,8 @@ ditherHero.set({ rayIntensity: 2.6, spinSpeed: 0.4 });
 | How hot a pixel must be to emit | `objectRayThreshold` | `0.35` |
 | Strength of those highlight beams | `objectRayGain` | `1.60` |
 | Stop beams washing the letters | `beamProtect` | `0.55` |
+| Remove the even wash entirely | `floodCut` (1 = none survives) | `0.90` |
+| Width of the wash estimate | `floodRadius` (low-res texels) | `9.00` |
 | Letter beam saturation | `textRayGain` | `7.00` |
 | Damp letter beams at centre | `textRayInner` | `0.26` |
 | Figure blocks its own beams | `rayOcclusion` | `1.00` |
@@ -108,6 +110,12 @@ shape with gaps throws thin shafts. If you want finer beams from the
 dino, reduce `lightCoreSize` rather than touching the blur settings.
 
 ### How the light is built
+
+All light geometry — `lightCoreSize`, `lightHaloSize`, `rayReach`,
+`textRayInner` — is measured in **width-relative** units, matching `fitWidth`
+and `textFitWidth`. Everything therefore scales together: narrowing the window
+shrinks the halo along with the figure and the type. These radii were previously
+height-relative, which is why a downsized window left the halo at its old size.
 
 **`lightCoreSize` must be larger than the figure's silhouette.** This is the
 single most common way to lose the backlight: if the core is smaller than the
@@ -225,6 +233,20 @@ revisited when the width actually changes. A mobile browser collapsing or
 expanding its toolbar changes the viewport height mid-scroll, and anything
 sized off that height jumps; pinning means the toolbar can come and go
 without the layout moving at all. Set `lockHeightOnTouch: false` to opt out.
+
+## No flood, by construction
+
+Dimming the beams never solved this, because the problem is not their peak but
+the broad even lift that appears when the figure turns and lets more of the
+source through. The blur pass now also takes a **wide** average of the beam
+buffer and subtracts it. A wide average of a field of thin streaks is close to
+its flood component, so subtracting it leaves the streak structure and removes
+the wash — and because the term rises and falls with the flood itself, it is
+self-levelling. Rotating the figure cannot wash the frame at any brightness.
+
+Measured across two very different rotations: mean 0.083 versus 0.088, medians
+at pure black. `floodCut` at `1.0` removes all of it; below about `0.7` the wash
+starts to creep back.
 
 ## Three beam sources
 
