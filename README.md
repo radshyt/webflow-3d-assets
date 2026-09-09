@@ -80,6 +80,12 @@ ditherHero.set({ rayIntensity: 2.6, spinSpeed: 0.4 });
 | Width of the wash estimate | `floodRadius` (low-res texels) | `9.00` |
 | How far the cut reaches | `floodExtent` (width units) | `0.30` |
 | Slide the figure sideways | `modelOffsetX` (fraction of width) | `0.00` |
+| Portrait switch point | `portraitBreakpoint` (width/height) | `1.00` |
+| Figure size in portrait | `portraitFitWidth` | `1.00` |
+| Figure height in portrait | `portraitModelOffsetY` | `0.15` |
+| Headline width in portrait | `portraitTextFitWidth` | `0.86` |
+| Headline drop in portrait | `portraitTextOffsetY` | `-0.32` |
+| Bottom edge roll-off | `bottomFade` (fraction of height) | `0.18` |
 | Letter beam saturation | `textRayGain` | `7.00` |
 | Damp letter beams at centre | `textRayInner` | `0.26` |
 | Figure blocks its own beams | `rayOcclusion` | `1.00` |
@@ -202,6 +208,32 @@ in the remainder. That is what produced a ghost copy of the words at the wrong
 scale after resizing the browser — two headlines at different sizes on top of
 each other. It only ever appeared after a resize, never on a fresh load at any
 size, which is what identified it.
+
+## The figure is the centre of its own light
+
+`modelOffsetX` moves the **rig**, not the model inside it. Offsetting the model
+within the rig left the pivot at the old screen centre, so the figure orbited a
+distant point and swung in and out of the backlight. Moving the rig means it
+spins about its own axis wherever it sits.
+
+Every light effect derives its centre from `lightCenterX/Y` **plus** the figure's
+offset — the backlight, the beam convergence, the letter falloff, the flood cut
+and the vignette all travel with it. Nothing stays pinned to the screen.
+
+## Portrait layout
+
+Below `portraitBreakpoint` (width ÷ height, default `1.00`) the layout stacks:
+the figure grows to `portraitFitWidth` and lifts by `portraitModelOffsetY`, and
+the headline drops to `portraitTextOffsetY` so it always sits beneath the figure
+rather than behind it. The five `portrait*` values are independent of their
+landscape counterparts, so tuning one will not disturb the other.
+
+## Bottom edge
+
+Beams reaching the canvas floor used to stop dead against whatever section
+follows. `bottomFade` rolls them off to black over that fraction of the canvas
+height, at the bottom edge only. Measured: the bottom 8% of the frame goes from
+0.0064 to 0.0010 mean while the frame overall is unchanged.
 
 ## Sizing and resizing
 
