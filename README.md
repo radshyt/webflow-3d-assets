@@ -16,8 +16,13 @@ permissive CORS headers, then copy the URL.
 `webflow-2-styles.css` as-is; the style tags are already in the file.
 
 **4. JS** — Page Settings → Custom Code → Before body tag. Paste
-`webflow-3-script.js` as-is; the module script tags are already in the
-file.
+`webflow-3-script.js` as-is; the module script tags are already in the file.
+
+The file is kept under Webflow's 50,000-character footer limit by stripping
+the explanatory comments from the code body. The CONFIG block at the top keeps
+all of its comments, since that is the part you edit; the reasoning behind the
+rest lives in this README. Current size is about 38,000 characters, leaving
+room for a few more features before the cap becomes a problem again.
 
 Publish. Custom code doesn't run in the Designer canvas — use Preview or
 the published site.
