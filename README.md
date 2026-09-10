@@ -133,13 +133,17 @@ ditherHero.set({ rayIntensity: 2.6, spinSpeed: 0.4 });
 | Sticky scroll on/off | `stickyEnabled` | `true` |
 | Transition start / length | `stickyStart` / `stickyRange` (vh) | `0.05` / `0.55` |
 | Snap easing | `stickyEase` (1 = linear) | `2.40` |
-| Headline hold | `textReleaseAt` (fraction of transition) | `0.80` |
+| Headline hold | `textReleaseAt` (fraction of transition) | `0.35` |
 | Parked size | `stickyWidth` (fraction of vw) | `0.10` |
 | Parked anchor | `stickyAnchorX` / `Y` (0–1) | `1.00` / `0.00` |
 | Edge clearance when parked | `stickyMarginX` / `Y` | `0.05` |
 | Canvas stacking | `stickyZIndex` | `1` |
 | Reflections when parked | `stickyEnvIntensity` | `1.10` |
 | Turns solid chrome at | `stickySolidAt` (progress) | `0.35` |
+| Silhouette crispness | `maskSharpness` (0 soft, 1 hard) | `0.72` |
+| Stencil resolution when parked | `stickyMaskScale` | `0.85` |
+| Render resolution when parked | `stickyRenderScale` | `1.00` |
+| Grey steps when parked | `stickyDitherLevels` | `5` |
 | Gradient colour | `tintColor` (hex) | `'#ffffff'` |
 | Colour amount | `tintStrength` (0 = greyscale) | `0.00` |
 | Overall grade | `exposure`, `contrast`, `lift`, `vignette` | — |
@@ -439,6 +443,28 @@ The headline block is measured from its **ink** — `actualBoundingBoxAscent` an
 `textPadding` adds room around it because italic and script faces overhang their
 advance width, which is what was clipping the last glyph. `textNudgeY` is a fine
 manual trim on top.
+
+## Why the small figure looked low-res
+
+Three things were softening it, and all three only bite once it is small.
+
+The silhouette comes from the occlusion buffer, which runs at 30% of screen — at
+full size that edge is a few pixels and invisible, but on a 10%-wide figure it is
+most of the outline. The four-tap average that stabilised it widened the edge
+further. `maskSharpness` now re-crisps that average with a narrow smoothstep
+band, which restores a hard edge while keeping about a pixel of antialiasing.
+
+The beauty pass renders at `renderScale` (0.85) and is upscaled, which is
+invisible at full size and obvious when small.
+
+Both are fixed by spending resolution where it is now free. Once parked the beams
+are gone, so the ray and blur passes are **skipped entirely** — that pays for
+`stickyMaskScale` (0.85) and `stickyRenderScale` (1.00), which apply only in the
+parked state. The buffers are resized once at the crossover, not per frame.
+
+`stickyDitherLevels` (5) also drops the grey count once small, so the figure
+reads graphic rather than noisy. Measured: mid-tone edge pixels around the parked
+figure fell from a soft ramp to 4.9% of the region.
 
 ## Colour
 
