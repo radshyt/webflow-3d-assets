@@ -21,8 +21,10 @@ permissive CORS headers, then copy the URL.
 The file is kept under Webflow's 50,000-character footer limit by stripping
 the explanatory comments from the code body. The CONFIG block at the top keeps
 all of its comments, since that is the part you edit; the reasoning behind the
-rest lives in this README. The body's blank lines are removed and its indentation halved as well — neither
-matters to JavaScript or GLSL. Current size is about 48,500 characters.
+rest lives in this README. The body's blank lines are removed and its indentation halved as well, and the
+per-setting comments are stripped from CONFIG — the section headers stay, and
+every setting is documented in the tables above. Current size is about 41,000
+characters, leaving roughly 9,000 spare.
 
 Publish. Custom code doesn't run in the Designer canvas — use Preview or
 the published site.
@@ -129,13 +131,15 @@ ditherHero.set({ rayIntensity: 2.6, spinSpeed: 0.4 });
 | Fine vertical trim | `textNudgeY` (fraction of block height) | `0.00` |
 | Portrait beam reach | `portraitRayReach` | `1.90` |
 | Sticky scroll on/off | `stickyEnabled` | `true` |
-| Transition start / length | `stickyStart` / `stickyRange` (vh) | `0.10` / `0.90` |
+| Transition start / length | `stickyStart` / `stickyRange` (vh) | `0.05` / `0.55` |
+| Snap easing | `stickyEase` (1 = linear) | `2.40` |
+| Headline hold | `textReleaseAt` (fraction of transition) | `0.80` |
 | Parked size | `stickyWidth` (fraction of vw) | `0.10` |
 | Parked anchor | `stickyAnchorX` / `Y` (0–1) | `1.00` / `0.00` |
 | Edge clearance when parked | `stickyMarginX` / `Y` | `0.05` |
 | Canvas stacking | `stickyZIndex` | `1` |
 | Reflections when parked | `stickyEnvIntensity` | `1.10` |
-| Turns solid chrome at | `stickySolidAt` (progress) | `0.85` |
+| Turns solid chrome at | `stickySolidAt` (progress) | `0.35` |
 | Gradient colour | `tintColor` (hex) | `'#ffffff'` |
 | Colour amount | `tintStrength` (0 = greyscale) | `0.00` |
 | Overall grade | `exposure`, `contrast`, `lift`, `vignette` | — |
@@ -361,15 +365,31 @@ without the layout moving at all. Set `lockHeightOnTouch: false` to opt out.
 
 ## Sticky scroll
 
+One caveat worth knowing: while the headline is pinned, it stays put in the
+viewport while the page scrolls underneath it. If the section directly below your
+hero is light, the lower line will land on it and wash out, because the canvas
+composites additively and mid-grey over white reads as white. Shorten
+`textReleaseAt` if that happens.
+
 With `stickyEnabled`, the canvas is fixed to the viewport and never takes pointer
 events, so the figure survives past its own section. Scrolling drives a single
 progress value: the figure shrinks to `stickyWidth` of the viewport width and
 travels to the bottom-right corner, `stickyMargin*` clear of the edges, over
 `stickyRange` viewport heights starting at `stickyStart`.
 
-The headline is **not** faded. It is translated by the scroll offset so it rides
-up and out of frame exactly like ordinary page content — a fixed canvas would
-otherwise hold it in place — and its light leaves with it. Only the figure's own
+The headline is **not** faded. It is **pinned** for the first `textReleaseAt` of
+the transition, then translated by the scroll offset so it rides up and out of
+frame like ordinary page content, starting from wherever it was released. Letting
+it move immediately slid the next section up underneath a figure that was still
+half transparent, which is what looked wrong. Its light leaves with it.
+
+The move to the corner is eased by `stickyEase` — 1 is linear, higher covers most
+of the distance early and settles softly into place.
+
+Opacity arrives on its own, faster ramp: the figure is fully opaque by
+`stickySolidAt` (0.35), well before it can reach anything below. `stickyRange` is
+short (0.55 of a viewport) for the same reason — the whole transition finishes
+inside the hero. Only the figure's own
 beams fade, on a squared curve so they clear well before it parks; fading them
 linearly left a soft disc of light hanging mid-transition.
 
