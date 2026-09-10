@@ -64,7 +64,7 @@ ditherHero.set({ rayIntensity: 2.6, spinSpeed: 0.4 });
 | Cursor response | `mouseStrength` (mouse only) | `0.80` |
 | Cursor weight/lag | `mouseEase` (lower = heavier) | `0.055` |
 | Slide toward cursor | `mouseParallax` | `0.05` |
-| Object size in frame | `fitWidth` (fraction of frustum WIDTH) | `0.36` |
+| Object size in frame | `fitWidth` (widest silhouette ÷ frustum width) | `0.48` |
 | Resting angle | `baseRotationX`, `baseRotationY` | `0` |
 | Figure beam brightness | `rayIntensity` | `1.10` |
 | Where a beam saturates | `rayGain` (higher = fatter) | `6.50` |
@@ -81,7 +81,11 @@ ditherHero.set({ rayIntensity: 2.6, spinSpeed: 0.4 });
 | How far the cut reaches | `floodExtent` (width units) | `0.30` |
 | Slide the figure sideways | `modelOffsetX` (fraction of width) | `0.00` |
 | Portrait switch point | `portraitBreakpoint` (width/height) | `1.00` |
-| Figure size in portrait | `portraitFitWidth` | `1.00` |
+| Figure size in portrait | `portraitFitWidth` | `0.86` |
+| Side clearance | `marginX` (fraction of width) | `0.06` |
+| Top/bottom clearance | `marginY` | `0.07` |
+| Letters emit from outline | `textLightEdge` (keep at 1) | `1.00` |
+| Outline thickness | `textLightEdgeWidth` (glyph texels) | `2.20` |
 | Figure height in portrait | `portraitModelOffsetY` | `0.15` |
 | Headline width in portrait | `portraitTextFitWidth` | `0.86` |
 | Headline drop in portrait | `portraitTextOffsetY` | `-0.32` |
@@ -208,6 +212,28 @@ in the remainder. That is what produced a ghost copy of the words at the wrong
 scale after resizing the browser — two headlines at different sizes on top of
 each other. It only ever appeared after a resize, never on a fresh load at any
 size, which is what identified it.
+
+## Why the letter beams stay linear
+
+A solid glyph is an **area** source. Radially blurred, it smears into a wedge,
+and near the convergence point those wedges pile into a blob — dimming them only
+made a dimmer blob. The letters therefore emit from their **outline** rather than
+their fill: a thin source blurs into a thin linear shaft, so the rays stay
+separate however the figure turns. `textLightEdge` at `1.0` is outline only;
+drop toward `0` and the blob returns.
+
+## Fitting the figure
+
+The figure is scaled so its **widest silhouette at any yaw** fits the frustum
+width, using the circumradius in the XZ plane. Spin is about Y, so that value is
+exact at every angle — fitting to a single axis let the silhouette bleed off the
+sides at some rotations, and a bounding sphere is safe but wastes room by
+including the vertical diagonal.
+
+The vertical extent adds an allowance for the X wobble and pointer tilt, which is
+what was letting the head clip off the top edge. `marginX` and `marginY` are the
+clearances kept on each side, and whichever constraint is tightest wins — so
+there is always negative space around the figure at any viewport shape.
 
 ## The figure is the centre of its own light
 
