@@ -118,7 +118,9 @@ ditherHero.set({ rayIntensity: 2.6, spinSpeed: 0.4 });
 | Chrome sharpness | `roughness` (lower = mirror) | `0.13` |
 | Reflection strength | `envIntensity` | `1.05` |
 | Grey steps in the dither | `ditherLevels` (2 = 1-bit) | `6` |
-| Dither dot size | `ditherPixelSize` (CSS px) | `2` |
+| Dither dot size | `ditherPixelSize` (CSS px) | `1` |
+| Gradient colour | `tintColor` (hex) | `'#ffffff'` |
+| Colour amount | `tintStrength` (0 = greyscale) | `0.00` |
 | Overall grade | `exposure`, `contrast`, `lift`, `vignette` | — |
 | Tone curve hinge | `contrastPivot` | `0.45` |
 
@@ -333,6 +335,22 @@ set a height on `.dyno_3d` in Webflow — let it come from the stage. A mobile b
 expanding its toolbar changes the viewport height mid-scroll, and anything
 sized off that height jumps; pinning means the toolbar can come and go
 without the layout moving at all. Set `lockHeightOnTouch: false` to opt out.
+
+## Colour
+
+The gradient runs from `tintColor` at its bright end down to black.
+`tintStrength` fades between untouched greyscale (`0`) and fully that colour
+(`1`), so a mid value gives a desaturated wash rather than a different hue.
+
+It is applied **after** the dither, as a multiply on the quantised grey. That
+keeps black at exactly black and takes only the bright end to the colour, so the
+halftone structure is preserved and simply carries colour instead of grey.
+Verified: `#ff8a1e` at full strength renders its brightest pixel at exactly
+`(1.000, 0.541, 0.118)`, and the darkest regions stay at pure zero.
+
+The hex is parsed by hand rather than through `THREE.Color`, which would convert
+sRGB to linear working space. These values multiply an already display-referred
+result, so they have to stay exactly as authored.
 
 ## No flood, by construction
 
