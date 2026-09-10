@@ -85,7 +85,7 @@ ditherHero.set({ rayIntensity: 2.6, spinSpeed: 0.4 });
 | Side clearance | `marginX` (fraction of width) | `0.06` |
 | Top/bottom clearance | `marginY` | `0.07` |
 | Letters emit from outline | `textLightEdge` (keep at 1) | `1.00` |
-| Outline thickness | `textLightEdgeWidth` (glyph texels) | `2.20` |
+| Outline thickness | `textLightEdgeWidth` (beam-buffer px) | `3.50` |
 | Figure height in portrait | `portraitModelOffsetY` | `0.15` |
 | Headline width in portrait | `portraitTextFitWidth` | `0.86` |
 | Headline drop in portrait | `portraitTextOffsetY` | `-0.32` |
@@ -222,6 +222,13 @@ their fill: a thin source blurs into a thin linear shaft, so the rays stay
 separate however the figure turns. `textLightEdge` at `1.0` is outline only;
 drop toward `0` and the blob returns.
 
+`textLightEdgeWidth` is measured in **beam-buffer pixels**, not glyph texels.
+The glyph canvas runs at roughly `2 / (dpr x occlusionScale)` texels per beam
+pixel, so an outline specified in texels was 0.58 of a beam pixel wide and
+aliased away completely — the letters emitted nothing at all. In beam-buffer
+pixels it converts correctly at any resolution, including phones, where the
+pixel ratio and buffer scale both differ.
+
 ## Fitting the figure
 
 The figure is scaled so its **widest silhouette at any yaw** fits the frustum
@@ -293,8 +300,11 @@ phone's toolbar sliding away made the viewport taller and the figure jumped
 bigger mid-scroll. With `fitWidth` the pixel height works out to
 `fitWidth x viewport width` exactly, whatever the height does.
 
-On touch devices the stage height is also pinned in pixels at load and only
-revisited when the width actually changes. A mobile browser collapsing or
+On touch devices both the stage **and the `.dyno_3d` wrapper** are pinned to a
+pixel height at load, revisited only when the width actually changes. Pinning
+the stage alone still let a parent sized in `svh`/`dvh` grow when the toolbar
+slid away, and that growth pushed the following section down mid-scroll. Do not
+set a height on `.dyno_3d` in Webflow — let it come from the stage. A mobile browser collapsing or
 expanding its toolbar changes the viewport height mid-scroll, and anything
 sized off that height jumps; pinning means the toolbar can come and go
 without the layout moving at all. Set `lockHeightOnTouch: false` to opt out.
@@ -409,6 +419,15 @@ scroll is the whole interaction.
 
 `prefers-reduced-motion` stops the spin, the scroll response and the
 pointer response.
+
+## Mobile quality
+
+Phones use their own values, applied whenever the device reports a coarse
+pointer: `mobileDitherPixelSize` (2.00), `mobileRenderScale` (0.90),
+`mobileMaxPixelRatio` (1.50), `mobileOcclusionScale` (0.26) and
+`mobileRaySamples` (20). Raise `mobileDitherPixelSize` for a chunkier,
+deliberate halftone; lower it for a finer grid. These replace the hardcoded
+phone overrides that were previously not adjustable.
 
 ## Mobile
 
