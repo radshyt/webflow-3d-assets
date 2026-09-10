@@ -131,7 +131,8 @@ ditherHero.set({ rayIntensity: 2.6, spinSpeed: 0.4 });
 | Sticky scroll on/off | `stickyEnabled` | `true` |
 | Transition start / length | `stickyStart` / `stickyRange` (vh) | `0.10` / `0.90` |
 | Parked size | `stickyWidth` (fraction of vw) | `0.10` |
-| Corner clearance | `stickyMarginX` / `Y` | `0.05` |
+| Parked anchor | `stickyAnchorX` / `Y` (0–1) | `1.00` / `0.00` |
+| Edge clearance when parked | `stickyMarginX` / `Y` | `0.05` |
 | Canvas stacking | `stickyZIndex` | `1` |
 | Gradient colour | `tintColor` (hex) | `'#ffffff'` |
 | Colour amount | `tintStrength` (0 = greyscale) | `0.00` |
@@ -374,6 +375,24 @@ scroll. `scrollVel` is signed, so reversing scroll direction reverses the spin
 with no extra handling. Pointer tilt, wobble and parallax all scale out with the
 same progress value, so nothing keeps moving once it is in the corner.
 
+The canvas is **transparent**. It clears to nothing and the composite writes its
+own alpha from its own luminance, premultiplied — black areas end up fully
+transparent, bright ones fully opaque. Over a black section the result is
+indistinguishable from an opaque canvas (measured 0.0805 against an opaque
+baseline of 0.0799), and over anything else only the figure and its light are
+drawn. Nothing black is painted over the page.
+
+Two details make that work. The composite uses `NoBlending` and covers the whole
+screen, so it writes rgb and alpha straight to the framebuffer. And the clear
+alpha stays at `1`: that same clear colour is used for the offscreen targets, and
+setting it to `0` left the beauty pass compositing against nothing, which came
+back blown out with the halftone crushed away.
+
+Where the figure rests when parked is `stickyAnchorX`/`Y`, from `0` to `1` across
+the space left inside the margins — `1, 0` is bottom-right, `0.5, 0.5` centres it.
+`stickyMargin*` is measured from the viewport edge to the figure's own edge, so
+the clearance is what you actually see.
+
 `stickyZIndex` defaults to `1`. If your sections sit beneath the figure, raise
 their own z-index rather than lowering this, or the canvas will end up behind an
 opaque background.
@@ -505,6 +524,12 @@ without that guard every sample past the border returns the same edge texel,
 and once that texel is bright the sum runs away. And `rayCeiling` caps what
 the beams may add, because `rayIntensity` scales a *saturated* beam — at 5.00
 a saturated region would otherwise land five times past white.
+
+The pointer is normalised against the **viewport** when sticky, not against the
+stage. The stage's rect scrolls away with the page, and normalising against it
+once scrolled produced values far outside −1..1 — which drove the tilt past
+vertical and stood the figure on its head until the cursor moved. The result is
+clamped to ±1 in both modes regardless.
 
 Pointer steering is mouse and pen only; touch pointer events are ignored.
 Touch drags competed with page scrolling and read as jumpy, so on phones
