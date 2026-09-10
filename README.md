@@ -21,8 +21,8 @@ permissive CORS headers, then copy the URL.
 The file is kept under Webflow's 50,000-character footer limit by stripping
 the explanatory comments from the code body. The CONFIG block at the top keeps
 all of its comments, since that is the part you edit; the reasoning behind the
-rest lives in this README. Current size is about 38,000 characters, leaving
-room for a few more features before the cap becomes a problem again.
+rest lives in this README. The body's blank lines are removed and its indentation halved as well — neither
+matters to JavaScript or GLSL. Current size is about 48,500 characters.
 
 Publish. Custom code doesn't run in the Designer canvas — use Preview or
 the published site.
@@ -125,6 +125,14 @@ ditherHero.set({ rayIntensity: 2.6, spinSpeed: 0.4 });
 | Reflection strength | `envIntensity` | `1.05` |
 | Grey steps in the dither | `ditherLevels` (2 = 1-bit) | `6` |
 | Dither dot size | `ditherPixelSize` (CSS px) | `1` |
+| Text inner padding | `textPadding` (fraction of block) | `0.06` |
+| Fine vertical trim | `textNudgeY` (fraction of block height) | `0.00` |
+| Portrait beam reach | `portraitRayReach` | `1.90` |
+| Sticky scroll on/off | `stickyEnabled` | `true` |
+| Transition start / length | `stickyStart` / `stickyRange` (vh) | `0.10` / `0.90` |
+| Parked size | `stickyWidth` (fraction of vw) | `0.10` |
+| Corner clearance | `stickyMarginX` / `Y` | `0.05` |
+| Canvas stacking | `stickyZIndex` | `1` |
 | Gradient colour | `tintColor` (hex) | `'#ffffff'` |
 | Colour amount | `tintStrength` (0 = greyscale) | `0.00` |
 | Overall grade | `exposure`, `contrast`, `lift`, `vignette` | — |
@@ -347,6 +355,36 @@ set a height on `.dyno_3d` in Webflow — let it come from the stage. A mobile b
 expanding its toolbar changes the viewport height mid-scroll, and anything
 sized off that height jumps; pinning means the toolbar can come and go
 without the layout moving at all. Set `lockHeightOnTouch: false` to opt out.
+
+## Sticky scroll
+
+With `stickyEnabled`, the canvas is fixed to the viewport and never takes pointer
+events, so the figure survives past its own section. Scrolling drives a single
+progress value: the figure shrinks to `stickyWidth` of the viewport width and
+travels to the bottom-right corner, `stickyMargin*` clear of the edges, over
+`stickyRange` viewport heights starting at `stickyStart`.
+
+The headline and all three beam sources fade out as it goes. The beams fade on a
+**squared** curve so they are gone well before the figure parks — fading them
+linearly left a large soft disc of light hanging in the middle of the transition,
+which read as a smudge rather than as light.
+
+Once parked, the resting spin is switched off and the figure turns only from
+scroll. `scrollVel` is signed, so reversing scroll direction reverses the spin
+with no extra handling. Pointer tilt, wobble and parallax all scale out with the
+same progress value, so nothing keeps moving once it is in the corner.
+
+`stickyZIndex` defaults to `1`. If your sections sit beneath the figure, raise
+their own z-index rather than lowering this, or the canvas will end up behind an
+opaque background.
+
+## Text metrics
+
+The headline block is measured from its **ink** — `actualBoundingBoxAscent` and
+`Descent` — rather than the em box, so vertical centring is true for any face.
+`textPadding` adds room around it because italic and script faces overhang their
+advance width, which is what was clipping the last glyph. `textNudgeY` is a fine
+manual trim on top.
 
 ## Colour
 
