@@ -88,7 +88,13 @@ ditherHero.set({ rayIntensity: 2.6, spinSpeed: 0.4 });
 | Outline thickness | `textLightEdgeWidth` (beam-buffer px) | `3.50` |
 | Figure height in portrait | `portraitModelOffsetY` | `0.15` |
 | Headline width in portrait | `portraitTextFitWidth` | `0.86` |
-| Headline drop in portrait | `portraitTextOffsetY` | `-0.32` |
+| Headline drop in portrait | `portraitTextOffsetY` (corner layout off) | `-0.32` |
+| One word per corner | `portraitCornerLayout` | `true` |
+| Both words' span on a row | `portraitCornerFitWidth` | `0.62` |
+| Side inset | `portraitCornerInsetX` | `0.07` |
+| Top / bottom row position | `portraitCornerTop` / `Bottom` | `0.09` |
+| Glass when clear of the words | `portraitGlass` | `0.55` |
+| Wake-up distance | `activateMargin` | `'75%'` |
 | Bottom edge roll-off | `bottomFade` (fraction of height) | `0.18` |
 | Letter beam saturation | `textRayGain` | `7.00` |
 | Damp letter beams at centre | `textRayInner` | `0.26` |
@@ -175,7 +181,15 @@ The figure is a solid mass, so it throws fewer and broader shafts than a
 shape with gaps would. Lowering `lightCoreSize` tightens them; raising
 `rayDecay` toward 1.0 lets them travel further before dying.
 
-### Glass
+### Glass, and why portrait uses a different value
+
+`portraitGlass` replaces `glass` whenever the portrait layout is active. With the
+figure clear of the words there is nothing behind it to refract, and at `glass:
+1.00` a fully transmissive object over a black field has almost no silhouette to
+read. Dropping toward chrome brings the form back. It is a separate value rather
+than a compromise, so the landscape look is untouched.
+
+## Glass
 
 `glass` fades the figure from solid chrome to clear glass. Because metal
 physically cannot transmit light, the slider fades `metalness` out as it
@@ -255,7 +269,18 @@ and the vignette all travel with it. Nothing stays pinned to the screen.
 
 ## Portrait layout
 
-Below `portraitBreakpoint` (width ÷ height, default `1.00`) the layout stacks:
+Below `portraitBreakpoint` (width ÷ height, default `1.00`), `portraitCornerLayout`
+puts one word in each quadrant: each line is split at its first space, the first
+word going to the left corner and the remainder to the right. The canvas covers
+the whole frame in this mode and the plane takes exactly the camera's aspect, so
+nothing stretches.
+
+`portraitCornerFitWidth` is the span of **both** words on a row combined — lower
+it to push them further apart into their corners, raise it to bring them
+together. At `0.84` they nearly touch; `0.62` gives the gap in the reference.
+
+Set `portraitCornerLayout: false` to fall back to the stacked layout below,
+which is what the `portraitTextFitWidth` / `portraitTextOffsetY` pair controls:
 the figure grows to `portraitFitWidth` and lifts by `portraitModelOffsetY`, and
 the headline drops to `portraitTextOffsetY` so it always sits beneath the figure
 rather than behind it. The five `portrait*` values are independent of their
@@ -483,6 +508,12 @@ Only the beauty pass runs at full resolution.
   that halving their rate frees the main thread during scrolling with no
   visible difference.
 - Default pixel ratio cap is 1.50.
+- Rendering starts `activateMargin` (default `75%` of the viewport) before the
+  section reaches the screen, not when it arrives. The scroll spin accumulates
+  from scroll deltas sampled in the render loop, so if the loop only woke on
+  entry the spin visibly kicked in late — the figure would be turning at its
+  resting speed and then jump. Scroll tracking also resets when the loop stops,
+  so resuming never produces a single huge delta.
 - Rendering pauses when the hero scrolls out of view and when the tab is
   hidden.
 - Pixel ratio is capped at 1.75, so 4K displays don't render 4× the pixels.
