@@ -136,10 +136,10 @@ ditherHero.set({ rayIntensity: 2.6, spinSpeed: 0.4 });
 | Headline hold | `textReleaseAt` (fraction of transition) | `0.35` |
 | Parked size | `stickyWidth` (fraction of vw) | `0.10` |
 | Parked anchor | `stickyAnchorX` / `Y` (0–1) | `1.00` / `0.00` |
-| Edge clearance when parked | `stickyMarginX` / `Y` | `0.05` |
+| Edge clearance when parked | `stickyMarginX` / `Y` | `0.01` / `0.0125` |
 | Canvas stacking | `stickyZIndex` | `1` |
 | Reflections when parked | `stickyEnvIntensity` | `1.10` |
-| Turns solid chrome at | `stickySolidAt` (progress) | `0.35` |
+| Glass→chrome window | `stickySolidStart` / `End` | `0.45` / `0.92` |
 | Silhouette crispness | `maskSharpness` (0 soft, 1 hard) | `0.72` |
 | Stencil resolution when parked | `stickyMaskScale` | `0.85` |
 | Render resolution when parked | `stickyRenderScale` | `1.00` |
@@ -358,6 +358,17 @@ phone's toolbar sliding away made the viewport taller and the figure jumped
 bigger mid-scroll. With `fitWidth` the pixel height works out to
 `fitWidth x viewport width` exactly, whatever the height does.
 
+**The drawing buffer is sized to the viewport, not the stage, whenever sticky is
+on.** A fixed canvas covers the viewport; sizing its buffer to the pinned stage
+height while its CSS box filled a taller viewport is what stretched everything
+vertically when a mobile toolbar retracted, and what squashed it on rotation.
+Buffer, CSS box and viewport now always agree.
+
+Height-only changes re-fit the camera and the planes but do **not** re-rasterise
+the headline — `layoutTextPlane` is separate from `drawText` for exactly this
+reason. Redrawing the text canvas on every toolbar movement is what made the
+headline stutter as it scrolled.
+
 On touch devices both the stage **and the `.dyno_3d` wrapper** are pinned to a
 pixel height at load, revisited only when the width actually changes. Pinning
 the stage alone still let a parent sized in `svh`/`dvh` grow when the toolbar
@@ -368,6 +379,10 @@ sized off that height jumps; pinning means the toolbar can come and go
 without the layout moving at all. Set `lockHeightOnTouch: false` to opt out.
 
 ## Sticky scroll
+
+The backlight travels with the figure. Its centre is recomputed each frame from
+the figure's own screen position, so the halo follows it into the corner instead
+of being left behind as a flood in the middle of the frame.
 
 One caveat worth knowing: while the headline is pinned, it stays put in the
 viewport while the page scrolls underneath it. If the section directly below your
@@ -397,7 +412,18 @@ inside the hero. Only the figure's own
 beams fade, on a squared curve so they clear well before it parks; fading them
 linearly left a soft disc of light hanging mid-transition.
 
-Past `stickySolidAt` the figure switches to **opaque chrome**: transmission goes
+The figure **ramps** from glass to opaque chrome across
+`stickySolidStart`–`stickySolidEnd`, smoothstepped, rather than switching at a
+threshold — the switch was visible. The window starts at `0.45`, after the figure
+has cleared the headline.
+
+Transmission is held just above zero through the ramp so the `USE_TRANSMISSION`
+define never changes and nothing recompiles mid-move. Only at the very end does it
+snap to zero, and the figure already looks identical by then, so that single
+recompile is invisible — and it buys back the transmission pass for the rest of
+the page.
+
+Past the ramp the figure is **opaque chrome**: transmission goes
 to zero and `stickyEnvIntensity` takes over, since `envIntensity` is tuned for
 glass and clips a chrome figure's highlights. Its alpha is forced by its own
 stencil rather than by luminance, so its dark chrome still reads against a white
