@@ -97,9 +97,9 @@ ditherHero.set({ rayIntensity: 2.6, spinSpeed: 0.4 });
 | Headline drop in portrait | `portraitTextOffsetY` (corner layout off) | `-0.32` |
 | Stack one word per line | `portraitStack` | `true` |
 | Portrait figure nudge | `portraitModelOffsetX` / `Y` | `0.00` |
-| Portrait reflections | `portraitEnvIntensity` | `1.10` |
+
 | Portrait beam scale | `portraitBeamScale` | `0.30` |
-| Glass when clear of the words | `portraitGlass` | `0.55` |
+
 | Wake-up distance | `activateMargin` | `'75%'` |
 | Bottom edge roll-off | `bottomFade` (fraction of height) | `0.18` |
 | Letter beam saturation | `textRayGain` | `7.00` |
@@ -134,6 +134,8 @@ ditherHero.set({ rayIntensity: 2.6, spinSpeed: 0.4 });
 | Parked anchor | `stickyAnchorX` / `Y` (0–1) | `1.00` / `0.00` |
 | Edge clearance when parked | `stickyMarginX` / `Y` | `0.05` |
 | Canvas stacking | `stickyZIndex` | `1` |
+| Reflections when parked | `stickyEnvIntensity` | `1.10` |
+| Turns solid chrome at | `stickySolidAt` (progress) | `0.85` |
 | Gradient colour | `tintColor` (hex) | `'#ffffff'` |
 | Colour amount | `tintStrength` (0 = greyscale) | `0.00` |
 | Overall grade | `exposure`, `contrast`, `lift`, `vignette` | — |
@@ -365,10 +367,23 @@ progress value: the figure shrinks to `stickyWidth` of the viewport width and
 travels to the bottom-right corner, `stickyMargin*` clear of the edges, over
 `stickyRange` viewport heights starting at `stickyStart`.
 
-The headline and all three beam sources fade out as it goes. The beams fade on a
-**squared** curve so they are gone well before the figure parks — fading them
-linearly left a large soft disc of light hanging in the middle of the transition,
-which read as a smudge rather than as light.
+The headline is **not** faded. It is translated by the scroll offset so it rides
+up and out of frame exactly like ordinary page content — a fixed canvas would
+otherwise hold it in place — and its light leaves with it. Only the figure's own
+beams fade, on a squared curve so they clear well before it parks; fading them
+linearly left a soft disc of light hanging mid-transition.
+
+Past `stickySolidAt` the figure switches to **opaque chrome**: transmission goes
+to zero and `stickyEnvIntensity` takes over, since `envIntensity` is tuned for
+glass and clips a chrome figure's highlights. Its alpha is forced by its own
+stencil rather than by luminance, so its dark chrome still reads against a white
+section or an image — a transparent glass figure simply disappears there. The
+stencil is averaged across one beam-buffer texel; a single tap carried that
+buffer's pixel grid into the silhouette edge, which is very visible once the
+figure is small and opaque.
+
+The portrait glass and env values are gone: portrait now uses the same `glass`
+as landscape, since the headline sits behind the figure there again.
 
 Once parked, the resting spin is switched off and the figure turns only from
 scroll. `scrollVel` is signed, so reversing scroll direction reverses the spin
