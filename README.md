@@ -39,7 +39,13 @@ At runtime: `ditherHero.setText('New|Phrase')`.
 
 ## Typography
 
-`textFamily` defaults to `'auto'`, which reads `--font--primary-family`
+`textFamily` accepts a CSS variable reference — `'var(--font--primary-family)'`,
+`'var(--font--secondary-family)'`, or any other custom property on the stage or
+an ancestor. `'auto'` is shorthand for the primary one, and a literal family
+stack works too. The variable is resolved against the container, so anything
+Webflow defines is available.
+
+The old behaviour read `--font--primary-family`
 off the stage element, so the headline follows your site's type without
 being hardcoded. The canvas redraws once webfonts finish loading, so it
 won't bake in the fallback. To override, set `data-font` on the embed or
@@ -89,10 +95,10 @@ ditherHero.set({ rayIntensity: 2.6, spinSpeed: 0.4 });
 | Figure height in portrait | `portraitModelOffsetY` | `0.15` |
 | Headline width in portrait | `portraitTextFitWidth` | `0.86` |
 | Headline drop in portrait | `portraitTextOffsetY` (corner layout off) | `-0.32` |
-| One word per corner | `portraitCornerLayout` | `true` |
-| Both words' span on a row | `portraitCornerFitWidth` | `0.62` |
-| Side inset | `portraitCornerInsetX` | `0.07` |
-| Top / bottom row position | `portraitCornerTop` / `Bottom` | `0.09` |
+| Stack one word per line | `portraitStack` | `true` |
+| Portrait figure nudge | `portraitModelOffsetX` / `Y` | `0.00` |
+| Portrait reflections | `portraitEnvIntensity` | `1.10` |
+| Portrait beam scale | `portraitBeamScale` | `0.30` |
 | Glass when clear of the words | `portraitGlass` | `0.55` |
 | Wake-up distance | `activateMargin` | `'75%'` |
 | Bottom edge roll-off | `bottomFade` (fraction of height) | `0.18` |
@@ -271,18 +277,24 @@ and the vignette all travel with it. Nothing stays pinned to the screen.
 
 ## Portrait layout
 
-Below `portraitBreakpoint` (width ÷ height, default `1.00`), `portraitCornerLayout`
-puts one word in each quadrant: each line is split at its first space, the first
-word going to the left corner and the remainder to the right. The canvas covers
-the whole frame in this mode and the plane takes exactly the camera's aspect, so
-nothing stretches.
+Below `portraitBreakpoint` (width ÷ height, default `1.00`), `portraitStack` puts
+every **word** on its own line, centred, ignoring the `|` breaks — so
+`WE MAKE|RAD SHYT` becomes four stacked lines. `portraitTextFitWidth` sets how
+much of the width the widest word fills and `portraitTextOffsetY` moves the block
+vertically; both figure offsets default to `0.00`, so the figure sits centred.
 
-`portraitCornerFitWidth` is the span of **both** words on a row combined — lower
-it to push them further apart into their corners, raise it to bring them
-together. At `0.84` they nearly touch; `0.62` gives the gap in the reference.
+**Portrait needs its own light values.** `portraitGlass` turns the figure part
+chrome, and `envIntensity` tuned for full glass blows a chrome figure's
+highlights out completely — hence `portraitEnvIntensity`. A chrome figure also
+throws far more highlight light than a dark glass one, and full-frame stacked
+type emits far more than a single line, so `portraitBeamScale` multiplies all
+three beam intensities. Without those two the vertical frame washes to white:
+measured 4.8% of pixels at white before, 2.2% after, with the median at pure
+black.
 
-Set `portraitCornerLayout: false` to fall back to the stacked layout below,
-which is what the `portraitTextFitWidth` / `portraitTextOffsetY` pair controls:
+Glass is re-applied on every resize. It previously ran only when the model
+loaded, so `portraitGlass` took effect only if the page opened in portrait and
+never when the window was resized into it.
 the figure grows to `portraitFitWidth` and lifts by `portraitModelOffsetY`, and
 the headline drops to `portraitTextOffsetY` so it always sits beneath the figure
 rather than behind it. The five `portrait*` values are independent of their
