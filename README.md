@@ -95,7 +95,7 @@ ditherHero.set({ rayIntensity: 2.6, spinSpeed: 0.4 });
 | Letters emit from outline | `textLightEdge` (keep at 1) | `1.00` |
 | Outline thickness | `textLightEdgeWidth` (beam-buffer px) | `3.50` |
 | Figure height in portrait | `portraitModelOffsetY` | `0.15` |
-| Headline width in portrait | `portraitTextFitWidth` | `0.86` |
+| Headline width in portrait | `portraitTextFitWidth` | `1.00` |
 | Headline drop in portrait | `portraitTextOffsetY` (corner layout off) | `-0.32` |
 | Stack one word per line | `portraitStack` | `true` |
 | Portrait figure nudge | `portraitModelOffsetX` / `Y` | `0.00` |
@@ -133,6 +133,14 @@ ditherHero.set({ rayIntensity: 2.6, spinSpeed: 0.4 });
 | Sticky scroll on/off | `stickyEnabled` | `true` |
 | Transition start / length | `stickyStart` / `stickyRange` (vh) | `0.05` / `0.55` |
 | Snap easing | `stickyEase` (1 = linear) | `2.40` |
+| Parked pitch | `stickyRotationX` (radians) | `0.00` |
+| Max transition speed | `stickyMaxRate` (per second) | `2.20` |
+| Scroll follow | `scrollSmoothing` (0 = raw) | `0.28` |
+| Frame cap on phones | `mobileMaxFps` | `60` |
+| Level the parked figure | `stickyLevel` (0–1) | `1.00` |
+| Max transition speed | `stickyMaxRate` (per second) | `2.20` |
+| Scroll follow | `scrollSmoothing` (0 = raw) | `0.28` |
+| Frame cap on phones | `mobileMaxFps` | `60` |
 | Headline hold | `textReleaseAt` (fraction of transition) | `0.35` |
 | Parked size | `stickyWidth` (fraction of vw) | `0.10` |
 | Parked anchor | `stickyAnchorX` / `Y` (0–1) | `1.00` / `0.00` |
@@ -402,6 +410,21 @@ frame like ordinary page content, starting from wherever it was released. Lettin
 it move immediately slid the next section up underneath a figure that was still
 half transparent, which is what looked wrong. Its light leaves with it.
 
+Parked off-axis in a perspective frustum, the figure is seen from above and to
+one side, which reads as a lean toward the corner. `stickyLevel` counter-rotates
+it by the yaw and pitch it subtends from the camera, presenting it square on as
+if it were centred. The correction is applied after the position is known each
+frame and ramps in with the same curve as the opacity, so it never snaps.
+
+Two things keep the move smooth where there is no Lenis. `scrollSmoothing` gives
+the headline and the transition a followed copy of the scroll position rather
+than the raw one — on mobile the raw value arrives in coarse steps, which is what
+made the text stutter as it rode up. And `stickyMaxRate` caps how much of the
+transition can be covered per second, so a hard flick eases the figure across
+instead of teleporting it into the corner. Phones also run at `mobileMaxFps`
+(60) rather than the desktop 45, since the beam passes are skipped after the hero
+anyway.
+
 The move to the corner is eased by `stickyEase` — 1 is linear, higher covers most
 of the distance early and settles softly into place.
 
@@ -434,6 +457,21 @@ figure is small and opaque.
 
 The portrait glass and env values are gone: portrait now uses the same `glass`
 as landscape, since the headline sits behind the figure there again.
+
+Pitch is **blended to `stickyRotationX`** as it parks, rather than having its
+inputs scaled out. Scaling the wobble and pointer tilt by progress still left the
+figure leaning if anything was mid-cycle when it arrived; blending to an exact
+value cannot. Yaw stays free, since scroll still turns it. If your model's rest
+pose needs a trim, that value is the dial — positive tips it back.
+
+Scroll position is **smoothed** by `scrollSmoothing` before it drives the
+headline or the transition. Desktop has Lenis doing that already; mobile does
+not, and the raw position arrives in coarse steps that made the headline stutter
+as it rode up.
+
+`stickyMaxRate` is a failsafe on top: however hard the page is flung, the figure
+covers at most that fraction of the transition per second, so a fast mobile
+scroll eases it across rather than teleporting it into the corner.
 
 Once parked, the resting spin is switched off and the figure turns only from
 scroll. `scrollVel` is signed, so reversing scroll direction reverses the spin
