@@ -133,11 +133,9 @@ ditherHero.set({ rayIntensity: 2.6, spinSpeed: 0.4 });
 | Sticky scroll on/off | `stickyEnabled` | `true` |
 | Transition start / length | `stickyStart` / `stickyRange` (vh) | `0.05` / `0.55` |
 | Snap easing | `stickyEase` (1 = linear) | `2.40` |
-| Parked pitch | `stickyRotationX` (radians) | `0.00` |
+| Cancel perspective pitch | `stickyLevelX` | `1.00` |
+| Extra pitch trim | `stickyRotationX` (radians) | `0.00` |
 | Parked roll | `stickyRotationZ` (radians) | `0.00` |
-| Resting yaw | `stickyRestYaw` (radians) | `0.00` |
-| Settle speed | `stickyYawSettle` (0 = off) | `0.05` |
-| Idle threshold | `stickyIdleVel` | `0.30` |
 | Max transition speed | `stickyMaxRate` (per second) | `2.20` |
 | Scroll follow | `scrollSmoothing` (0 = raw) | `0.28` |
 | Frame cap on phones | `mobileMaxFps` | `60` |
@@ -462,28 +460,15 @@ figure is small and opaque.
 The portrait glass and env values are gone: portrait now uses the same `glass`
 as landscape, since the headline sits behind the figure there again.
 
-**On the parked figure looking tilted.** Its pitch is zero when parked, and the
-corner placement adds nothing: measured against the centre of the frame at the
-same yaw, the corner reads 0.2° off vertical versus 3.9° in the middle. What does
-change it is the yaw — across four yaws the silhouette measured 0.2°, 8.3°, 5.3°
-and 2.7° off vertical. The lean is the model's own asymmetric shape, chiefly the
-jaw, not a transform. A trim can therefore only level one yaw; `stickyRotationZ`
-is that trim, a true screen-space roll.
+**The parked figure sits level.** Below the camera axis it is seen from above,
+so at a pitch of zero it reads as tilted back — you can see down into the jaw.
+`stickyLevelX` cancels exactly the angle it subtends from the camera, so it sits
+level with the bottom of the screen wherever the margins put it. `stickyRotationX`
+is an extra manual trim on top if a particular model needs one.
 
-The more useful fix is `stickyRestYaw`. Parked and not being scrolled, the yaw
-eases to the nearest whole turn that presents that angle, so the figure shows the
-**same face every time it comes to rest** instead of stopping wherever the scroll
-left it. Scroll still spins it: above `stickyIdleVel` the settle backs off
-entirely and scroll keeps control. Verified by parking from two very different
-scroll distances and comparing the settled frames — the poses match.
-
-With the pose now deterministic, pick a yaw you like with `stickyRestYaw` and, if
-that particular face still reads as leaning, level it once with
-`stickyRotationZ`. Set `stickyYawSettle: 0` to switch the settling off.
-
-The rig uses `ZYX` rotation order so that roll is applied last, in screen space.
-Under the default `XYZ` it is applied first, and after a large spin it comes out
-as a pitch instead — which is why an earlier roll trim appeared to do nothing.
+The rig uses `ZYX` rotation order so `stickyRotationZ` is applied last, in screen
+space. Under the default `XYZ` it is applied first and comes out as a pitch after
+a large spin.
 
 Pitch is **blended to `stickyRotationX`** as it parks, rather than having its
 inputs scaled out. Scaling the wobble and pointer tilt by progress still left the
