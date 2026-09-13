@@ -134,6 +134,7 @@ ditherHero.set({ rayIntensity: 2.6, spinSpeed: 0.4 });
 | Transition start / length | `stickyStart` / `stickyRange` (vh) | `0.05` / `0.55` |
 | Snap easing | `stickyEase` (1 = linear) | `2.40` |
 | Parked pitch | `stickyRotationX` (radians) | `0.00` |
+| Parked roll | `stickyRotationZ` (radians) | `0.00` |
 | Max transition speed | `stickyMaxRate` (per second) | `2.20` |
 | Scroll follow | `scrollSmoothing` (0 = raw) | `0.28` |
 | Frame cap on phones | `mobileMaxFps` | `60` |
@@ -457,6 +458,20 @@ figure is small and opaque.
 
 The portrait glass and env values are gone: portrait now uses the same `glass`
 as landscape, since the headline sits behind the figure there again.
+
+**On the parked figure looking tilted.** Its pitch is zero when parked, and the
+corner placement adds nothing: measured against the centre of the frame at the
+same yaw, the corner reads 0.2° off vertical versus 3.9° in the middle. What does
+change it is the yaw — across four yaws the silhouette measured 0.2°, 8.3°, 5.3°
+and 2.7° off vertical. The lean is the model's own asymmetric shape, chiefly the
+jaw, not a transform. A trim can therefore only level one yaw; `stickyRotationZ`
+is that trim, a true screen-space roll. If you want the figure to present the
+same face every time it parks, the real answer is a fixed resting yaw rather than
+a roll — ask and I will add it.
+
+The rig uses `ZYX` rotation order so that roll is applied last, in screen space.
+Under the default `XYZ` it is applied first, and after a large spin it comes out
+as a pitch instead — which is why an earlier roll trim appeared to do nothing.
 
 Pitch is **blended to `stickyRotationX`** as it parks, rather than having its
 inputs scaled out. Scaling the wobble and pointer tilt by progress still left the
