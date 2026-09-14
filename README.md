@@ -133,8 +133,11 @@ ditherHero.set({ rayIntensity: 2.6, spinSpeed: 0.4 });
 | Sticky scroll on/off | `stickyEnabled` | `true` |
 | Transition start / length | `stickyStart` / `stickyRange` (vh) | `0.05` / `0.55` |
 | Snap easing | `stickyEase` (1 = linear) | `2.40` |
-| Cancel perspective pitch | `stickyLevelX` | `1.00` |
-| Extra pitch trim | `stickyRotationX` (radians) | `0.00` |
+| Put parked figure on axis | `stickyStraighten` | `1.00` |
+| Parked pitch trim | `stickyRotationX` (radians) | `0.00` |
+| Parked yaw | `stickyRotationY` (radians) | `0.00` |
+| Scroll spin on X | `stickySpinX` | `1.00` |
+| Scroll spin on Z | `stickySpinZ` | `0.00` |
 | Parked roll | `stickyRotationZ` (radians) | `0.00` |
 | Max transition speed | `stickyMaxRate` (per second) | `2.20` |
 | Scroll follow | `scrollSmoothing` (0 = raw) | `0.28` |
@@ -460,15 +463,20 @@ figure is small and opaque.
 The portrait glass and env values are gone: portrait now uses the same `glass`
 as landscape, since the headline sits behind the figure there again.
 
-**The parked figure sits level.** Below the camera axis it is seen from above,
-so at a pitch of zero it reads as tilted back — you can see down into the jaw.
-`stickyLevelX` cancels exactly the angle it subtends from the camera, so it sits
-level with the bottom of the screen wherever the margins put it. `stickyRotationX`
-is an extra manual trim on top if a particular model needs one.
+**The parked figure is dead on the camera axis.** Placing it in the corner by
+moving it through the world put it off axis, where perspective shows it from
+above and from the side — the skew you could measure against the screen edges.
+It is now placed by **shifting the projection** instead: the world offset hands
+over to an equal `setViewOffset` as it parks, so the figure ends up back on axis
+and is drawn exactly as if it were centred, while still appearing in the corner.
+Verified by rendering the parked figure and the same figure dead centre — the two
+are identical. `stickyStraighten: 0` reverts to the old off-axis placement.
 
-The rig uses `ZYX` rotation order so `stickyRotationZ` is applied last, in screen
-space. Under the default `XYZ` it is applied first and comes out as a pitch after
-a large spin.
+**Parked, scroll tumbles it rather than turning it.** Yaw is held at
+`stickyRotationY`, so it keeps facing the camera, and the scroll spin is routed to
+X and Z by `stickySpinX` and `stickySpinZ`. Scroll direction still reverses it,
+since the velocity is signed. In the hero the spin remains on Y as before; the
+two are cross-faded by the same progress value.
 
 Pitch is **blended to `stickyRotationX`** as it parks, rather than having its
 inputs scaled out. Scaling the wobble and pointer tilt by progress still left the
