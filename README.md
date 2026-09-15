@@ -136,8 +136,9 @@ ditherHero.set({ rayIntensity: 2.6, spinSpeed: 0.4 });
 | Put parked figure on axis | `stickyStraighten` | `1.00` |
 | Parked pitch trim | `stickyRotationX` (radians) | `0.00` |
 | Parked yaw | `stickyRotationY` (radians) | `0.00` |
-| Scroll spin on X | `stickySpinX` | `1.00` |
-| Scroll spin on Z | `stickySpinZ` | `0.00` |
+| Scroll spin on Y | `stickySpinY` (turntable) | `1.00` |
+| Scroll spin on X | `stickySpinX` (tumble) | `0.00` |
+| Scroll spin on Z | `stickySpinZ` (roll) | `0.00` |
 | Parked roll | `stickyRotationZ` (radians) | `0.00` |
 | Max transition speed | `stickyMaxRate` (per second) | `2.20` |
 | Scroll follow | `scrollSmoothing` (0 = raw) | `0.28` |
@@ -472,11 +473,16 @@ and is drawn exactly as if it were centred, while still appearing in the corner.
 Verified by rendering the parked figure and the same figure dead centre — the two
 are identical. `stickyStraighten: 0` reverts to the old off-axis placement.
 
-**Parked, scroll tumbles it rather than turning it.** Yaw is held at
-`stickyRotationY`, so it keeps facing the camera, and the scroll spin is routed to
-X and Z by `stickySpinX` and `stickySpinZ`. Scroll direction still reverses it,
-since the velocity is signed. In the hero the spin remains on Y as before; the
-two are cross-faded by the same progress value.
+**Parked, the scroll spin stays on Y** — the same left-right turntable as in the
+hero. `stickySpinX` and `stickySpinZ` can route some or all of it into a forward
+tumble or a roll instead; both default to `0`. Scroll direction still reverses it,
+since the velocity is signed.
+
+The projection shift moves the **whole scene**, so it dragged the headline
+sideways with it. That shift is now cancelled on the text plane, scaled for its
+own depth, so the headline only ever travels upward. Measured across the
+transition, its horizontal centroid holds within a few pixels of centre; without
+the cancellation it drifted nearly 500px right.
 
 Pitch is **blended to `stickyRotationX`** as it parks, rather than having its
 inputs scaled out. Scaling the wobble and pointer tilt by progress still left the
