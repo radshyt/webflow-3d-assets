@@ -65,8 +65,10 @@ ditherHero.set({ rayIntensity: 2.6, spinSpeed: 0.4 });
 | What you want to change | Setting | Default |
 |---|---|---|
 | Resting spin | `spinSpeed` (rad/sec) | `0.15` |
-| Scroll spin-up | `scrollBoost` (rad/sec per px) | `0.020` |
-| Scroll spin ceiling | `scrollBoostMax` | `7.0` |
+| Scroll spin rate | `scrollBoost` (rad/s per px/s) | `0.0016` |
+| Spin rate ceiling | `scrollBoostMax` | `3.0` |
+| Spin rate follow | `scrollVelEase` | `0.20` |
+| Progress follow | `stickyFollow` | `0.22` |
 | How long it coasts | `scrollDamping` (higher = longer) | `0.955` |
 | Slow vertical drift | `wobbleAmount`, `wobbleSpeed` | `0.10`, `0.30` |
 | Cursor response | `mouseStrength` (mouse only) | `0.80` |
@@ -489,6 +491,23 @@ inputs scaled out. Scaling the wobble and pointer tilt by progress still left th
 figure leaning if anything was mid-cycle when it arrived; blending to an exact
 value cannot. Yaw stays free, since scroll still turns it. If your model's rest
 pose needs a trim, that value is the dial — positive tips it back.
+
+**The spin rate tracks scroll speed rather than accumulating.** Each scroll delta
+used to be added to the angular velocity, so a single flick piled up several
+turns before the damping caught it. A delta now sets a *target* rate that the
+spin follows, capped by `scrollBoostMax` — the figure turns as fast as the page
+moves and stops when it does. Measured on a 600px swipe, total rotation went from
+several turns to well under one.
+
+`stickyFollow` eases the transition progress toward its target. A hard rate limit
+on its own advanced it in uneven steps as frame times varied, and that unevenness
+showed up as jitter in the headline, which is positioned from the same value.
+`stickyMaxRate` still caps it for fast flings.
+
+The viewport is also checked **every frame**, not only on the resize event.
+Toolbar slides and rotations change the viewport before the event is delivered,
+so the drawing buffer was briefly the wrong shape — the frame appeared stretched
+or squashed and then snapped back.
 
 Scroll position is **smoothed** by `scrollSmoothing` before it drives the
 headline or the transition. Desktop has Lenis doing that already; mobile does
