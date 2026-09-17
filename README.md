@@ -65,9 +65,8 @@ ditherHero.set({ rayIntensity: 2.6, spinSpeed: 0.4 });
 | What you want to change | Setting | Default |
 |---|---|---|
 | Resting spin | `spinSpeed` (rad/sec) | `0.15` |
-| Scroll spin rate | `scrollBoost` (rad/s per px/s) | `0.0016` |
-| Spin rate ceiling | `scrollBoostMax` | `3.0` |
-| Spin rate follow | `scrollVelEase` | `0.20` |
+| Scroll spin | `scrollBoost` (rad/s per px) | `0.020` |
+| Spin ceiling (failsafe) | `scrollBoostMax` | `7.0` |
 | Progress follow | `stickyFollow` | `0.22` |
 | How long it coasts | `scrollDamping` (higher = longer) | `0.955` |
 | Slow vertical drift | `wobbleAmount`, `wobbleSpeed` | `0.10`, `0.30` |
@@ -143,11 +142,13 @@ ditherHero.set({ rayIntensity: 2.6, spinSpeed: 0.4 });
 | Scroll spin on Z | `stickySpinZ` (roll) | `0.00` |
 | Parked roll | `stickyRotationZ` (radians) | `0.00` |
 | Max transition speed | `stickyMaxRate` (per second) | `2.20` |
-| Scroll follow | `scrollSmoothing` (0 = raw) | `0.28` |
+| Scroll follow | `scrollSmoothing` (0 = raw) | `0.00` |
+| Height settle guard | `heightSettleFrames` | `4` |
 | Frame cap on phones | `mobileMaxFps` | `60` |
 | Level the parked figure | `stickyLevel` (0–1) | `1.00` |
 | Max transition speed | `stickyMaxRate` (per second) | `2.20` |
-| Scroll follow | `scrollSmoothing` (0 = raw) | `0.28` |
+| Scroll follow | `scrollSmoothing` (0 = raw) | `0.00` |
+| Height settle guard | `heightSettleFrames` | `4` |
 | Frame cap on phones | `mobileMaxFps` | `60` |
 | Headline hold | `textReleaseAt` (fraction of transition) | `0.35` |
 | Parked size | `stickyWidth` (fraction of vw) | `0.10` |
@@ -492,27 +493,43 @@ figure leaning if anything was mid-cycle when it arrived; blending to an exact
 value cannot. Yaw stays free, since scroll still turns it. If your model's rest
 pose needs a trim, that value is the dial — positive tips it back.
 
-**The spin rate tracks scroll speed rather than accumulating.** Each scroll delta
-used to be added to the angular velocity, so a single flick piled up several
-turns before the damping caught it. A delta now sets a *target* rate that the
-spin follows, capped by `scrollBoostMax` — the figure turns as fast as the page
-moves and stops when it does. Measured on a 600px swipe, total rotation went from
-several turns to well under one.
+**The yaw is one continuous accumulator for the whole page.** It previously
+cross-faded between a hero yaw and a separate parked yaw, which forced the figure
+to unwind whatever angle it happened to be at — so it sat nearly still through the
+transition and then whipped round near the end. There is now a single `spin`
+value; scroll drives it identically before, during and after the transition, and
+`scrollBoostMax` remains the failsafe for fast flings.
 
-`stickyFollow` eases the transition progress toward its target. A hard rate limit
-on its own advanced it in uneven steps as frame times varied, and that unevenness
-showed up as jitter in the headline, which is positioned from the same value.
-`stickyMaxRate` still caps it for fast flings.
+**Pointer response is applied outside the spin.** The figure sits on an inner
+`spinner` group that carries the yaw, while the rig outside it carries everything
+the pointer drives. With both on the same object the pitch was applied inside the
+spin, so its direction flipped once the figure had turned past 90 degrees.
 
-The viewport is also checked **every frame**, not only on the resize event.
-Toolbar slides and rotations change the viewport before the event is delivered,
-so the drawing buffer was briefly the wrong shape — the frame appeared stretched
-or squashed and then snapped back.
+Scroll position is read raw by default (`scrollSmoothing: 0`). Smoothing it adds
+lag without improving the headline's motion — see the measurement below. It is
+clamped at zero, so dragging past the top of the page cannot drive the transition
+backwards.
 
-Scroll position is **smoothed** by `scrollSmoothing` before it drives the
-headline or the transition. Desktop has Lenis doing that already; mobile does
-not, and the raw position arrives in coarse steps that made the headline stutter
-as it rode up.
+A viewport **height** change must hold still for `heightSettleFrames` before it is
+acted on. Rubber-band overscroll reports a height that snaps straight back, and
+resizing the buffer to it stretched the frame.
+
+### Measuring headline smoothness
+
+Record `textPlane.position.y / fhT + viewShiftY / fh0` — the headline's on-screen
+position, world offset at its own depth plus the projection shift — against
+`window.scrollY` each frame, then fit a straight line. Any deviation is jitter
+contributed by this code.
+
+Measured over a scripted scroll: **0.000000**, max and mean. The positioning is
+exact. What remains is delivery: the page scrolls on the compositor while the
+headline is moved once per animation frame on the main thread, and the two cannot
+be perfectly in step. Keeping the main thread free is the only lever — hence
+`mobileMaxFps: 0` and skipping the beam passes once parked.
+
+If that residual is still not acceptable, the structural fix is to move the
+headline into the DOM so it scrolls natively with the page. That costs the dither
+on the text, the refraction through the glass, and the light through the letters.
 
 `stickyMaxRate` is a failsafe on top: however hard the page is flung, the figure
 covers at most that fraction of the transition per second, so a fast mobile
