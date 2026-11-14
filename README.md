@@ -67,7 +67,7 @@ ditherHero.set({ rayIntensity: 2.6, spinSpeed: 0.4 });
 | Resting spin | `spinSpeed` (rad/sec) | `0.15` |
 | Scroll spin | `scrollBoost` (rad/s per px) | `0.020` |
 | Spin ceiling (failsafe) | `scrollBoostMax` | `7.0` |
-| Progress follow | `stickyFollow` | `0.22` |
+| Progress follow | `stickyFollow` | `0.32` |
 | How long it coasts | `scrollDamping` (higher = longer) | `0.955` |
 | Slow vertical drift | `wobbleAmount`, `wobbleSpeed` | `0.10`, `0.30` |
 | Cursor response | `mouseStrength` (mouse only) | `0.80` |
@@ -133,22 +133,22 @@ ditherHero.set({ rayIntensity: 2.6, spinSpeed: 0.4 });
 | Portrait beam reach | `portraitRayReach` | `1.90` |
 | Sticky scroll on/off | `stickyEnabled` | `true` |
 | Transition start / length | `stickyStart` / `stickyRange` (vh) | `0.05` / `0.55` |
-| Snap easing | `stickyEase` (1 = linear) | `2.40` |
+| Ease-out on the move | `stickyEase` (1 = linear) | `2.40` |
+| Ease-in on the move | `stickyEaseIn` (1 = none) | `1.00` |
+| Arc of the path | `stickyArc` (0 straight, 1 quarter arc) | `1.00` |
+| Extra spin mid-transition | `transitionSpin` (1 = none) | `1.60` |
 | Put parked figure on axis | `stickyStraighten` | `1.00` |
 | Parked pitch trim | `stickyRotationX` (radians) | `0.00` |
 | Parked yaw | `stickyRotationY` (radians) | `0.00` |
 | Scroll spin on Y | `stickySpinY` (turntable) | `1.00` |
-| Scroll spin on X | `stickySpinX` (tumble) | `0.00` |
 | Scroll spin on Z | `stickySpinZ` (roll) | `0.00` |
 | Parked roll | `stickyRotationZ` (radians) | `0.00` |
-| Max transition speed | `stickyMaxRate` (per second) | `2.20` |
+| Max transition speed | `stickyMaxRate` (per second) | `3.50` |
 | Scroll follow | `scrollSmoothing` (0 = raw) | `0.00` |
-| Height settle guard | `heightSettleFrames` | `4` |
 | Frame cap on phones | `mobileMaxFps` | `60` |
 | Level the parked figure | `stickyLevel` (0–1) | `1.00` |
-| Max transition speed | `stickyMaxRate` (per second) | `2.20` |
+| Max transition speed | `stickyMaxRate` (per second) | `3.50` |
 | Scroll follow | `scrollSmoothing` (0 = raw) | `0.00` |
-| Height settle guard | `heightSettleFrames` | `4` |
 | Frame cap on phones | `mobileMaxFps` | `60` |
 | Headline hold | `textReleaseAt` (fraction of transition) | `0.35` |
 | Parked size | `stickyWidth` (fraction of vw) | `0.10` |
@@ -386,14 +386,84 @@ the headline — `layoutTextPlane` is separate from `drawText` for exactly this
 reason. Redrawing the text canvas on every toolbar movement is what made the
 headline stutter as it scrolled.
 
-On touch devices both the stage **and the `.dyno_3d` wrapper** are pinned to a
-pixel height at load, revisited only when the width actually changes. Pinning
-the stage alone still let a parent sized in `svh`/`dvh` grow when the toolbar
-slid away, and that growth pushed the following section down mid-scroll. Do not
-set a height on `.dyno_3d` in Webflow — let it come from the stage. A mobile browser collapsing or
-expanding its toolbar changes the viewport height mid-scroll, and anything
-sized off that height jumps; pinning means the toolbar can come and go
-without the layout moving at all. Set `lockHeightOnTouch: false` to opt out.
+## How the scroll works
+
+**Nothing that is locked to the page is moved by the render loop.** That is the
+whole design, and it is what removes the stagger.
+
+The hero canvas lives inside a `position: sticky` wrapper that is `100vh` tall.
+The stage is made one viewport plus the pinned distance tall, so the browser
+itself holds the canvas still while the figure travels, then scrolls it away.
+The headline is drawn in that canvas and never moves in the scene, so once it is
+released it is moved by the compositor, at the display's full refresh rate,
+exactly 1:1 with the page. Measured: the wrapper holds at 0 until the release
+point and then tracks the scroll to the pixel.
+
+A second, fixed **dock** canvas takes the figure over at the release point. It
+renders only the solid chrome figure, with no beams, refraction or occlusion
+pass, so the rest of the page scrolls with a much lighter main thread. The two
+canvases share one camera and are the same size, so the handoff is invisible:
+measured either side of it, the frames differ by 0.008, which is dither noise.
+The dock's edge comes from a 4x multisampled coverage mask at full resolution,
+so the parked figure is crisper than before as well.
+
+Both canvases are sized with `100vh`, which mobile browsers do **not** change
+when the toolbar slides. Nothing resizes mid-scroll. The parked figure is
+anchored to the visible bottom edge, so it rides above the toolbar like any fixed
+footer.
+
+**Why the old version staggered.** It moved the headline from the render loop
+using the viewport height, and on a phone scrolling down collapses the toolbar,
+which changes that height mid-scroll. The headline moved 14% faster than the page
+and then jumped about 27px a few frames later. An earlier smoothness test ran at
+a fixed viewport size and could not see it.
+
+### The release point
+
+The headline is released at `max(textReleaseAt, stickySolidEnd)` through the
+transition. The figure has to be solid chrome before it can leave the hero
+canvas, because the dock cannot refract text it does not contain. With
+`textReleaseAt: 0.35` and `stickySolidEnd: 0.92`, release happens at 0.92. That
+is close to what you first asked for (text pinned until the figure is nearly
+parked). The reason you lowered it — pinned text washing out over the white
+section — no longer applies, because the stage is now physically taller and the
+pinned headline always sits on its own black background. To release earlier,
+lower **both** values.
+
+### One Webflow requirement
+
+Sticky positioning stops working if **any ancestor** of the stage has
+`overflow: hidden`, `auto` or `scroll`. Webflow sections often get
+`overflow: hidden` by default. If the headline scrolls away immediately instead
+of pinning, find that ancestor and change it to `overflow: clip`, which clips the
+same way without breaking sticky. The script already sets the stage itself to
+visible.
+
+The stage is now taller than one viewport. The section after the hero starts
+once the pinned distance has been scrolled, which is how a sticky hero works.
+
+### Transition speed, easing, arc and spin
+
+Four controls decide how the move to the corner feels:
+
+- `stickyRange` — how much scroll the whole transition takes, in viewport
+  heights. This is the main speed control. Lower is faster.
+- `stickyFollow` — how tightly progress follows the scroll. Higher is snappier.
+  Raised to 0.32 from 0.22, which is most of why it felt slow.
+- `stickyMaxRate` — the most of the transition covered per second, the
+  high-velocity failsafe. Raised to 3.50 from 2.20.
+- `stickyEase` and `stickyEaseIn` — the curve. `stickyEase` front-loads the
+  motion (ease-out); `stickyEaseIn` above 1 adds a slow start, giving an
+  ease-in-out.
+
+`stickyArc` bends the path. At 1 the figure follows a quarter arc, leaving the
+centre moving sideways and arriving in the corner moving downward, as in your
+sketch. Traced: first step 108px across and 12px down, last steps mostly down.
+At 0 it travels in a straight line.
+
+`transitionSpin` multiplies the spin during the transition, peaking halfway and
+fading to nothing at both ends. It scales the scroll-driven spin, so the figure
+still speeds up and slows down with your scroll, just more so while it travels.
 
 ## Sticky scroll
 
@@ -477,8 +547,7 @@ Verified by rendering the parked figure and the same figure dead centre — the 
 are identical. `stickyStraighten: 0` reverts to the old off-axis placement.
 
 **Parked, the scroll spin stays on Y** — the same left-right turntable as in the
-hero. `stickySpinX` and `stickySpinZ` can route some or all of it into a forward
-tumble or a roll instead; both default to `0`. Scroll direction still reverses it,
+hero. Scroll direction still reverses it,
 since the velocity is signed.
 
 The projection shift moves the **whole scene**, so it dragged the headline
@@ -509,58 +578,6 @@ Scroll position is read raw by default (`scrollSmoothing: 0`). Smoothing it adds
 lag without improving the headline's motion — see the measurement below. It is
 clamped at zero, so dragging past the top of the page cannot drive the transition
 backwards.
-
-A viewport **height** change must hold still for `heightSettleFrames` before it is
-acted on. Rubber-band overscroll reports a height that snaps straight back, and
-resizing the buffer to it stretched the frame.
-
-### Measuring headline smoothness
-
-Record `textPlane.position.y / fhT + viewShiftY / fh0` — the headline's on-screen
-position, world offset at its own depth plus the projection shift — against
-`window.scrollY` each frame, then fit a straight line. Any deviation is jitter
-contributed by this code.
-
-Measured over a scripted scroll: **0.000000**, max and mean. The positioning is
-exact. What remains is delivery: the page scrolls on the compositor while the
-headline is moved once per animation frame on the main thread, and the two cannot
-be perfectly in step. Keeping the main thread free is the only lever — hence
-`mobileMaxFps: 0` and skipping the beam passes once parked.
-
-If that residual is still not acceptable, the structural fix is to move the
-headline into the DOM so it scrolls natively with the page. That costs the dither
-on the text, the refraction through the glass, and the light through the letters.
-
-`stickyMaxRate` is a failsafe on top: however hard the page is flung, the figure
-covers at most that fraction of the transition per second, so a fast mobile
-scroll eases it across rather than teleporting it into the corner.
-
-Once parked, the resting spin is switched off and the figure turns only from
-scroll. `scrollVel` is signed, so reversing scroll direction reverses the spin
-with no extra handling. Pointer tilt, wobble and parallax all scale out with the
-same progress value, so nothing keeps moving once it is in the corner.
-
-The canvas is **transparent**. It clears to nothing and the composite writes its
-own alpha from its own luminance, premultiplied — black areas end up fully
-transparent, bright ones fully opaque. Over a black section the result is
-indistinguishable from an opaque canvas (measured 0.0805 against an opaque
-baseline of 0.0799), and over anything else only the figure and its light are
-drawn. Nothing black is painted over the page.
-
-Two details make that work. The composite uses `NoBlending` and covers the whole
-screen, so it writes rgb and alpha straight to the framebuffer. And the clear
-alpha stays at `1`: that same clear colour is used for the offscreen targets, and
-setting it to `0` left the beauty pass compositing against nothing, which came
-back blown out with the halftone crushed away.
-
-Where the figure rests when parked is `stickyAnchorX`/`Y`, from `0` to `1` across
-the space left inside the margins — `1, 0` is bottom-right, `0.5, 0.5` centres it.
-`stickyMargin*` is measured from the viewport edge to the figure's own edge, so
-the clearance is what you actually see.
-
-`stickyZIndex` defaults to `1`. If your sections sit beneath the figure, raise
-their own z-index rather than lowering this, or the canvas will end up behind an
-opaque background.
 
 ## Text metrics
 
