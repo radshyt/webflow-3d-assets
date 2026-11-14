@@ -391,7 +391,7 @@ headline stutter as it scrolled.
 **Nothing that is locked to the page is moved by the render loop.** That is the
 whole design, and it is what removes the stagger.
 
-The hero canvas lives inside a `position: sticky` wrapper that is `100vh` tall.
+The hero canvas lives inside a `position: sticky` wrapper one viewport tall.
 The stage is made one viewport plus the pinned distance tall, so the browser
 itself holds the canvas still while the figure travels, then scrolls it away.
 The headline is drawn in that canvas and never moves in the scene, so once it is
@@ -399,18 +399,34 @@ released it is moved by the compositor, at the display's full refresh rate,
 exactly 1:1 with the page. Measured: the wrapper holds at 0 until the release
 point and then tracks the scroll to the pixel.
 
-A second, fixed **dock** canvas takes the figure over at the release point. It
-renders only the solid chrome figure, with no beams, refraction or occlusion
-pass, so the rest of the page scrolls with a much lighter main thread. The two
-canvases share one camera and are the same size, so the handoff is invisible:
-measured either side of it, the frames differ by 0.008, which is dither noise.
-The dock's edge comes from a 4x multisampled coverage mask at full resolution,
-so the parked figure is crisper than before as well.
+A second, fixed **dock** canvas takes the figure over **just before** the release
+point, while both canvases are still stationary, so the swap cannot be seen. The
+handoff is triggered by the raw scroll position, not by the figure's eased
+progress. That progress deliberately trails the scroll, and an earlier version
+waited for it — on a fast scroll the hero canvas began moving with the figure
+still inside it, the figure left that canvas's clipped box and vanished, then
+reappeared in the corner. The dock covers the whole viewport, so it simply carries
+the figure the rest of the way along its arc, however far behind the scroll it is.
+Measured on a fling 555px past the release point with the figure slowed right
+down: the figure is present in every frame and travels a continuous arc.
 
-Both canvases are sized with `100vh`, which mobile browsers do **not** change
-when the toolbar slides. Nothing resizes mid-scroll. The parked figure is
-anchored to the visible bottom edge, so it rides above the toolbar like any fixed
-footer.
+The glass-to-chrome ramp and the beam fade also follow the raw scroll, so the
+figure is fully chrome and its beams are gone by the handoff, however fast the
+page is scrolled. Its position still eases; only the material is led by scroll.
+
+The dock renders only the solid chrome figure, with no beams, refraction or
+occlusion pass, so the rest of the page scrolls with a much lighter main thread.
+The two canvases share one camera and are the same size; measured either side of
+the handoff, the frames differ by 0.008, which is dither noise. The dock's edge
+comes from a 4x multisampled coverage mask at full resolution.
+
+Both canvases are given an explicit **pixel** height — the larger of the window
+height and the browser's large-viewport height, measured once and re-measured
+only when the width changes. A toolbar sliding changes neither, so nothing
+resizes mid-scroll. An earlier version used `100vh`, which some mobile browsers
+do change as the toolbar moves; the canvas's box and its drawing buffer then
+disagreed and the headline was squashed vertically. The parked figure is anchored
+to the visible bottom edge, so it rides above the toolbar like any fixed footer.
 
 **Why the old version staggered.** It moved the headline from the render loop
 using the viewport height, and on a phone scrolling down collapses the toolbar,
