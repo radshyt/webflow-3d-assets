@@ -136,6 +136,8 @@ ditherHero.set({ rayIntensity: 2.6, spinSpeed: 0.4 });
 | Ease-out on the move | `stickyEase` (1 = linear) | `2.40` |
 | Ease-in on the move | `stickyEaseIn` (1 = none) | `1.00` |
 | Arc of the path | `stickyArc` (0 straight, 1 quarter arc) | `1.00` |
+| Slow landing in the corner | `stickyEaseOut` (0 none, 1 arrives at rest) | `0.70` |
+| Toolbar follow on phones | `toolbarEase` (lower = softer) | `0.10` |
 | Extra spin mid-transition | `transitionSpin` (1 = none) | `1.60` |
 | Put parked figure on axis | `stickyStraighten` | `1.00` |
 | Parked pitch trim | `stickyRotationX` (radians) | `0.00` |
@@ -433,6 +435,20 @@ using the viewport height, and on a phone scrolling down collapses the toolbar,
 which changes that height mid-scroll. The headline moved 14% faster than the page
 and then jumped about 27px a few frames later. An earlier smoothness test ran at
 a fixed viewport size and could not see it.
+
+`stickyEaseOut` slows only the landing. It reshapes the end of the path so the
+figure arrives at a fraction of its speed — at `1` it comes to rest exactly as it
+reaches the corner — without making the start any faster, which a stronger
+`stickyEase` would. Measured on equal scroll increments, the last four steps went
+from 44, 28, 15 and 5px to 28, 16, 8 and 3px, with the opening step unchanged.
+
+**Toolbar.** A phone reports its viewport height in steps as the bottom toolbar
+animates, not continuously, and the figure's resting point is anchored to the
+visible bottom edge. Following that number directly made the figure jump by the
+toolbar's height part way down its path. It now follows a smoothed copy that
+glides toward each new reading; `toolbarEase` sets how quickly. Logged per frame,
+an 80px snap in the reported height becomes a glide of 22, 37, 49, 57… settling
+in about half a second at 60fps.
 
 ### The release point
 
