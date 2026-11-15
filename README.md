@@ -18,13 +18,21 @@ permissive CORS headers, then copy the URL.
 **4. JS** — Page Settings → Custom Code → Before body tag. Paste
 `webflow-3-script.js` as-is; the module script tags are already in the file.
 
-The file is kept under Webflow's 50,000-character footer limit by stripping
-the explanatory comments from the code body. The CONFIG block at the top keeps
-all of its comments, since that is the part you edit; the reasoning behind the
-rest lives in this README. The body's blank lines are removed and its indentation halved as well, and the
-per-setting comments are stripped from CONFIG — the section headers stay, and
-every setting is documented in the tables above. Current size is about 41,000
-characters, leaving roughly 9,000 spare.
+The pasted file is **minified**: about 33,800 characters against Webflow's
+50,000 limit, leaving roughly 16,200 spare. The `CONFIG` block at the top is kept
+exactly as written, so every value is still readable and editable; only the code
+beneath it is compacted. The shaders have their whitespace stripped and the
+JavaScript is run through terser. Nothing about how the code runs changes.
+
+That was checked rather than assumed. Six frozen states (desktop hero,
+mid-transition, released; phone hero, mid-transition, docked) were rendered from
+the readable build and from the minified one and compared pixel for pixel: zero
+differing pixels in all six. The scroll-lag, toolbar and fast-fling tests pass on
+the minified build as well.
+
+The readable source is `source/dither-hero.source.js`, with the script that
+builds the pasted file from it (`source/build.cjs`). Changes are made to the
+source and rebuilt; the pasted file is not meant to be edited below `CONFIG`.
 
 Publish. Custom code doesn't run in the Designer canvas — use Preview or
 the published site.
@@ -132,7 +140,7 @@ ditherHero.set({ rayIntensity: 2.6, spinSpeed: 0.4 });
 | Fine vertical trim | `textNudgeY` (fraction of block height) | `0.00` |
 | Portrait beam reach | `portraitRayReach` | `1.90` |
 | Sticky scroll on/off | `stickyEnabled` | `true` |
-| Transition start / length | `stickyStart` / `stickyRange` (vh) | `0.05` / `0.55` |
+| Transition start / length | `stickyStart` / `stickyRange` (vh) | `0.02` / `0.34` |
 | Ease-out on the move | `stickyEase` (1 = linear) | `2.40` |
 | Ease-in on the move | `stickyEaseIn` (1 = none) | `1.00` |
 | Arc of the path | `stickyArc` (0 straight, 1 quarter arc) | `1.00` |
@@ -160,8 +168,6 @@ ditherHero.set({ rayIntensity: 2.6, spinSpeed: 0.4 });
 | Reflections when parked | `stickyEnvIntensity` | `1.10` |
 | Glass→chrome window | `stickySolidStart` / `End` | `0.45` / `0.92` |
 | Silhouette crispness | `maskSharpness` (0 soft, 1 hard) | `0.72` |
-| Stencil resolution when parked | `stickyMaskScale` | `0.85` |
-| Render resolution when parked | `stickyRenderScale` | `1.00` |
 | Grey steps when parked | `stickyDitherLevels` | `5` |
 | Gradient colour | `tintColor` (hex) | `'#ffffff'` |
 | Colour amount | `tintStrength` (0 = greyscale) | `0.00` |
@@ -393,42 +399,60 @@ headline stutter as it scrolled.
 **Nothing that is locked to the page is moved by the render loop.** That is the
 whole design, and it is what removes the stagger.
 
-The hero canvas lives inside a `position: sticky` wrapper one viewport tall.
-The stage is made one viewport plus the pinned distance tall, so the browser
-itself holds the canvas still while the figure travels, then scrolls it away.
-The headline is drawn in that canvas and never moves in the scene, so once it is
-released it is moved by the compositor, at the display's full refresh rate,
-exactly 1:1 with the page. Measured: the wrapper holds at 0 until the release
-point and then tracks the scroll to the pixel.
+There are two layers, and neither ever changes which one it is.
 
-A second, fixed **dock** canvas takes the figure over **just before** the release
-point, while both canvases are still stationary, so the swap cannot be seen. The
-handoff is triggered by the raw scroll position, not by the figure's eased
-progress. That progress deliberately trails the scroll, and an earlier version
-waited for it — on a fast scroll the hero canvas began moving with the figure
-still inside it, the figure left that canvas's clipped box and vanished, then
-reappeared in the corner. The dock covers the whole viewport, so it simply carries
-the figure the rest of the way along its arc, however far behind the scroll it is.
-Measured on a fling 555px past the release point with the figure slowed right
-down: the figure is present in every frame and travels a continuous arc.
+**The headline** is a still picture in a `position: sticky` wrapper one viewport
+tall. The stage is one viewport plus the pinned distance tall, so the browser
+itself holds the headline still while the figure travels, then scrolls it away.
+It is moved by the compositor, at the display's full refresh rate, exactly 1:1
+with the page. Measured: the wrapper holds at 0 until the release point and then
+tracks the scroll to the pixel. The picture is taken from the WebGL render (same
+grade, same dither) whenever the text, size or grade changes, so it is not a DOM
+headline and it looks exactly as it did.
 
-The glass-to-chrome ramp and the beam fade also follow the raw scroll, so the
-figure is fully chrome and its beams are gone by the handoff, however fast the
-page is scrolled. Its position still eases; only the material is led by scroll.
+**The figure and all the light** (backlight, beams, glass) are drawn in one
+WebGL canvas that is `position: fixed` over the whole viewport and never scrolls.
+Each pixel is written as the difference between the full hero image and the
+headline picture underneath, so the two layers together add up to precisely the
+image the single hero canvas used to show. Checked against the previous build in
+frozen states: identical at rest to within 1/255, and within a handful of edge
+pixels through the transition.
 
-The dock renders only the solid chrome figure, with no beams, refraction or
-occlusion pass, so the rest of the page scrolls with a much lighter main thread.
-The two canvases share one camera and are the same size; measured either side of
-the handoff, the frames differ by 0.008, which is dither noise. The dock's edge
-comes from a 4x multisampled coverage mask at full resolution.
+**Why it is built this way: the phone jump.** On a phone the page is scrolled by
+the compositor, and the script only learns the scroll position several frames
+later (measured from your recording: 4 to 7 frames). The previous build kept the
+figure inside the hero canvas until just before the headline was released, then
+handed it to a second fixed canvas. On a quick scroll the headline was released
+before the script knew, the figure rode upward with it for those frames, and then
+snapped down into the corner. That was the jump near the bottom right, and it had
+nothing to do with whether the toolbar was showing.
 
-Both canvases are given an explicit **pixel** height — the larger of the window
+This is reproducible on a desktop by feeding the script a scroll position a few
+frames old while the page scrolls ahead. With the script 4 frames behind at
+60px a frame, the previous build moved the figure 34px the wrong way and then
+176px in a single frame. The current build's largest wrong-way step in the same
+test is 0px, including the case where the headline is released before the script
+has seen any scroll at all. Because the figure is never in a layer that scrolls,
+there is no moment that has to be timed.
+
+Once the figure is solid chrome and its beams are gone, the canvas drops to a
+light render of the figure alone (no beams, refraction or occlusion pass), with
+its edge taken from a 4x multisampled coverage mask at full resolution. The rest
+of the page scrolls with a much lighter main thread. This is the same canvas and
+the same GL context, so nothing is handed over. The chrome shader and the
+multisampled buffer are warmed once during the fade-in, so the first scroll does
+not pause to compile them.
+
+On touch devices the beams are also faded ahead of a fast scroll (by where the
+page will be about a fifth of a second later), so that they are already gone when
+the headline starts to move. Otherwise their light would sit still for a few
+frames while the letters it belongs to moved away.
+
+Both layers are given an explicit **pixel** height: the larger of the window
 height and the browser's large-viewport height, measured once and re-measured
 only when the width changes. A toolbar sliding changes neither, so nothing
-resizes mid-scroll. An earlier version used `100vh`, which some mobile browsers
-do change as the toolbar moves; the canvas's box and its drawing buffer then
-disagreed and the headline was squashed vertically. The parked figure is anchored
-to the visible bottom edge, so it rides above the toolbar like any fixed footer.
+resizes mid-scroll. The canvas is anchored to the **top** of the viewport, which
+is the edge mobile browsers keep still while the toolbar moves.
 
 **Why the old version staggered.** It moved the headline from the render loop
 using the viewport height, and on a phone scrolling down collapses the toolbar,
@@ -443,18 +467,19 @@ reaches the corner — without making the start any faster, which a stronger
 from 44, 28, 15 and 5px to 28, 16, 8 and 3px, with the opening step unchanged.
 
 **Toolbar.** A phone reports its viewport height in steps as the bottom toolbar
-animates, not continuously, and the figure's resting point is anchored to the
-visible bottom edge. Following that number directly made the figure jump by the
-toolbar's height part way down its path. It now follows a smoothed copy that
-glides toward each new reading; `toolbarEase` sets how quickly. Logged per frame,
-an 80px snap in the reported height becomes a glide of 22, 37, 49, 57… settling
-in about half a second at 60fps.
+animates, not continuously. The figure's resting point is the visible bottom
+edge, and it follows a smoothed copy of that height, both on the way down and
+once parked; `toolbarEase` sets how quickly. Previously the parked figure sat in
+a canvas pinned to the bottom of the viewport, so it moved with the toolbar in
+one step. Tested by changing the visible height by 80px in one step while
+docked: the figure glides to the same clearance from the new bottom edge in both
+directions, and the canvas itself does not move or resize.
 
 ### The release point
 
 The headline is released at `max(textReleaseAt, stickySolidEnd)` through the
-transition. The figure has to be solid chrome before it can leave the hero
-canvas, because the dock cannot refract text it does not contain. With
+transition. The figure is kept glass only while the headline is pinned
+behind it, so it is solid chrome before the next section can reach it. With
 `textReleaseAt: 0.35` and `stickySolidEnd: 0.92`, release happens at 0.92. That
 is close to what you first asked for (text pinned until the figure is nearly
 parked). The reason you lowered it — pinned text washing out over the white
@@ -479,7 +504,9 @@ once the pinned distance has been scrolled, which is how a sticky hero works.
 Four controls decide how the move to the corner feels:
 
 - `stickyRange` — how much scroll the whole transition takes, in viewport
-  heights. This is the main speed control. Lower is faster.
+  heights. This is the main speed control, and it also sets how far you scroll
+  before the next section arrives. Lower is shorter. The headline stays pinned
+  for `stickyStart + stickyRange x 0.92` viewport heights: 0.33 now, 0.56 before.
 - `stickyFollow` — how tightly progress follows the scroll. Higher is snappier.
   Raised to 0.32 from 0.22, which is most of why it felt slow.
 - `stickyMaxRate` — the most of the transition covered per second, the
@@ -632,10 +659,11 @@ band, which restores a hard edge while keeping about a pixel of antialiasing.
 The beauty pass renders at `renderScale` (0.85) and is upscaled, which is
 invisible at full size and obvious when small.
 
-Both are fixed by spending resolution where it is now free. Once parked the beams
-are gone, so the ray and blur passes are **skipped entirely** — that pays for
-`stickyMaskScale` (0.85) and `stickyRenderScale` (1.00), which apply only in the
-parked state. The buffers are resized once at the crossover, not per frame.
+Both are fixed by the parked render: once the figure is solid and the beams are
+gone, the ray and blur passes are **skipped entirely** and the figure is drawn on
+its own at full resolution with a 4x multisampled edge. (`stickyMaskScale` and
+`stickyRenderScale` are gone: they resized the buffers part way through the
+transition, which is no longer needed.)
 
 `stickyDitherLevels` (5) also drops the grey count once small, so the figure
 reads graphic rather than noisy. Measured: mid-tone edge pixels around the parked
